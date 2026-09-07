@@ -90,6 +90,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          allowed_bots: github-actions
           prompt: |
             Work autonomously on pull request #${{ env.PR_NUMBER }} in ${{ github.repository }}.
             Follow CLAUDE.md. Inspect the complete diff against origin/main and the current git status.
