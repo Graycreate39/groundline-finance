@@ -21,6 +21,7 @@ concurrency:
 jobs:
   find:
     name: Find an eligible PR
+    if: vars.GROUNDLINE_AUTOPILOT_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
