@@ -15,6 +15,19 @@ npm run dev
 
 The application opens Arcwell Cloud. Use the company switcher for Northstar Robotics, Meridian Components, and Fieldnote Health. Data and UI state persist in browser `localStorage` under `groundline-state`; clear site data to reset the demo safely.
 
+### Optional local research API
+
+The repository also includes an additive local server for SEC EDGAR research. It keeps outbound requests, the required SEC user agent, and durable evidence records outside browser code while continuing to serve the existing application.
+
+```bash
+cp .env.example .env
+# Set SEC_USER_AGENT in .env to your name and contact email.
+npm run research
+# open http://127.0.0.1:4173
+```
+
+`POST /api/research` accepts a U.S. public-company ticker or name and an objective. Reported facts retain SEC filing provenance; unavailable providers return an explicit incomplete state rather than invented values. Records are written atomically to `.groundline/data.json` by default. The bundled browser workspace remains the primary UI while the research API is an integration boundary for a later evidence-first workflow.
+
 ## Product thesis and audience
 
 Groundline is for startup finance teams, corporate FP&A, investors, and strategy leaders who need an answer **and** a defensible trail explaining it. The interface progressively discloses conclusion → composition → schedule → formula → assumptions → evidence → history.
@@ -55,6 +68,7 @@ tests/engine.test.mjs      critical finance-engine tests
 docs/                      focused modeling and product methodology
 screenshots/               application states captured for documentation
 scripts/                    dependency-free quality/build utilities
+server/                     optional local SEC research API and durable store
 ```
 
 The static front end is deliberately deployable later without changing domain calculations. Provider interfaces and a durable embedded database are the next architectural boundary; the current local slice uses browser storage to remain zero-install.
@@ -72,7 +86,7 @@ See [financial modeling](docs/modeling.md), [research and estimation](docs/resea
 
 ## Privacy and providers
 
-No network request is made by the application. No credentials are needed. Imported/private data should remain local; this first slice does not log or transmit it. Optional live AI and research adapters are intentionally deferred until a user supplies a provider and credentials via an uncommitted local environment file. The current analyst identifies itself as a deterministic demo interpreter.
+The default static application makes no network request and needs no credentials. Imported/private data should remain local; this first slice does not log or transmit it. The optional local research server makes server-side requests to SEC EDGAR only when asked and stores its records locally. Live AI and other research adapters remain deferred until a user supplies a provider and credentials through an uncommitted local environment file. The current analyst identifies itself as a deterministic demo interpreter.
 
 ## Quality commands
 

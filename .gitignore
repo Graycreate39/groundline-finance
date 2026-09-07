@@ -1,0 +1,5 @@
+.env
+.env.local
+.groundline/
+node_modules/
+.DS_Store
