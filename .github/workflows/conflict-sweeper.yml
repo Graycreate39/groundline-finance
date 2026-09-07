@@ -31,7 +31,8 @@ jobs:
       - name: Select the oldest owner-authored Codex PR
         id: find
         run: |
-          number="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number,headRefName,headRepositoryOwner,author,isCrossRepository,createdAt --jq '[.[] | select(.isCrossRepository == false and .headRepositoryOwner.login == env.GITHUB_REPOSITORY_OWNER and .author.login == env.GITHUB_REPOSITORY_OWNER and (.headRefName | startswith("codex/")))] | sort_by(.createdAt) | first | .number // empty')"
+          number="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number,headRefName,headRepositoryOwner,author,isCrossRepository,createdAt \
+            | jq -r --arg owner "$GITHUB_REPOSITORY_OWNER" '[.[] | select(.isCrossRepository == false and .headRepositoryOwner.login == $owner and .author.login == $owner and (.headRefName | startswith("codex/")))] | sort_by(.createdAt) | first | .number // empty')"
           echo "number=$number" >> "$GITHUB_OUTPUT"
 
   repair:
