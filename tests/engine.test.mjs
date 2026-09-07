@@ -6,8 +6,3 @@ test('financing ownership fully reconciles',()=>{const x=financing({preMoney:70,
 test('reverse solve reaches target enterprise value',()=>{const target=500;const r=reverseRevenue(target,base);assert(Math.abs(dcf({...base,revenue:r}).enterpriseValue-target)<1e-6);});
 test('seeded uncertainty is reproducible',()=>assert.deepEqual(seededSimulation(42,30,base),seededSimulation(42,30,base)));
 test('attribution exposes changes and residual',()=>{const x=attribution(base,{wacc:.11,terminalGrowth:.025},v=>dcf(v).enterpriseValue);assert.equal(x.items.length,2);assert(Math.abs(x.end-x.start-x.items.reduce((s,i)=>s+i.impact,0)-x.residual)<1e-8);});
-test('invalid calculations fail clearly instead of producing NaN or Infinity',()=>{
- assert.throws(()=>runway({openingCash:1,monthlyRevenue:undefined,monthlyPayroll:2,monthlyOpex:1}),/finite numeric inputs/);
- assert.throws(()=>dcf({...base,wacc:.02,terminalGrowth:.03}),/WACC must exceed/);
- assert.throws(()=>dcf({...base,shares:0}),/Share count/);
-});

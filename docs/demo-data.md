@@ -1,5 +1,5 @@
-# Bundled example provenance
+# Demo data provenance
 
-Arcwell Cloud, Northstar Robotics, Meridian Components, and Fieldnote Health are fictional educational examples generated for Groundline on 6 September 2026. They are available only through the secondary “Explore examples” path and are prominently labeled **FICTIONAL · BUNDLED DEMO**.
+All names and values are fictional and generated for Groundline on 6 September 2026. Arcwell Cloud is a public-style SaaS model with synthetic financial statements, forecasts, peers, and evidence. Northstar Robotics is a venture-backed startup model for monthly cash, hiring, and Series C dilution. Meridian Components demonstrates capacity, utilization, capex, working capital, and debt framing. Fieldnote Health demonstrates a stage-gated initiative with unit economics and scenarios.
 
-Their documents, peers, metrics, and claims are synthetic—not live research or real disclosures. They must never use “Reported” as provenance; bundled source facts should be described as demo snapshot values. Real SEC claims are stored separately in locally persisted `live-research` workspaces.
+“Annual report,” “benchmark,” and “management note” entries are bundled synthetic snapshots—not real publications or live research. Their dates exist to exercise freshness, conflict, and claim mapping. Values were designed for internal directional consistency, not external benchmarking or investment use.

@@ -1,7 +1,5 @@
-# AI and numerical boundaries
+# AI safety and numerical boundaries
 
-Groundline is AI-native in interaction design, not AI-dependent in arithmetic. Provider or language-model adapters may resolve intent, plan research, extract claims, or propose typed actions. They may not calculate the model of record, silently mutate material assumptions, invent unavailable facts, or upgrade an estimate to reported provenance.
+The language layer is never calculator of record. It may propose typed actions—scenario, assumption change, hiring cohort, financing round, peer change, sensitivity, reverse solve, explanation, or comparison—but material mutations require a displayed interpretation first. Deterministic code performs arithmetic, reconciliation, and propagation.
 
-The compact command surface replaces the former persistent mascot panel. It reports research progress, proposes typed actions, and requires confirmation for numerical changes. With no provider configured, it states that limitation rather than simulating an external model.
-
-Deterministic functions validate finite inputs before calculation. DCF requires WACC above terminal growth and positive shares; runway requires finite cash/revenue/costs and a positive integer horizon. Provider errors retain what remains usable and show an actionable recovery path.
+Credential-free mode uses explicit phrase matching for bundled questions and labels itself “Deterministic demo interpreter.” It does not simulate a remote model. Unknown prompts fall back to a typed explanation path. Future providers must sit behind adapters, keep credentials in ignored local configuration, preserve citations, refuse unsupported numerical claims, and return structured actions validated before execution.

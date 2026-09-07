@@ -1,0 +1,50 @@
+name: Groundline Conflict Sweeper
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: groundline-conflict-sweeper
+  cancel-in-progress: false
+
+jobs:
+  find:
+    name: Find an eligible PR
+    if: vars.GROUNDLINE_AUTOPILOT_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      number: ${{ steps.find.outputs.number }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Select the oldest owner-authored Codex PR
+        id: find
+        run: |
+          number="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number,headRefName,isCrossRepository,createdAt \
+            | jq -r '[.[] | select(.isCrossRepository == false and (.headRefName | startswith("codex/")))] | sort_by(.createdAt) | first | .number // empty')"
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+  repair:
+    name: Dispatch repair for PR
+    needs: find
+    if: needs.find.outputs.number != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ needs.find.outputs.number }}
+    steps:
+      - name: Start a supported autopilot event
+        run: gh workflow run autopilot.yml --repo "$GITHUB_REPOSITORY" --ref main -f pull_request="$PR_NUMBER"

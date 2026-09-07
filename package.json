@@ -1,4 +1,15 @@
 {
-  "name":"groundline-finance","version":"0.2.0","private":true,"type":"module",
-  "scripts":{"dev":"node --env-file-if-exists=.env server/server.mjs","start":"node server/server.mjs","test":"node --test tests/*.test.mjs","lint":"node scripts/check.mjs","typecheck":"node scripts/check.mjs","build":"node scripts/build.mjs"}
+  "name": "groundline-finance",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "python3 -m http.server 4173",
+    "research": "node --env-file-if-exists=.env server/server.mjs",
+    "start": "node server/server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "lint": "node scripts/check.mjs",
+    "typecheck": "node scripts/check.mjs",
+    "build": "node scripts/build.mjs"
+  }
 }

@@ -1,0 +1,126 @@
+name: Groundline Autopilot
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_call:
+    inputs:
+      pull_request:
+        description: Pull request number to repair and queue
+        required: true
+        type: number
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Pull request number to repair and queue
+        required: true
+        type: number
+
+permissions:
+  actions: read
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: groundline-autopilot-${{ github.event.pull_request.number || inputs.pull_request }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    name: Review, repair, and queue
+    if: >-
+      vars.GROUNDLINE_AUTOPILOT_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' || inputs.pull_request > 0 ||
+       (github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.user.login == github.repository_owner &&
+        startsWith(github.event.pull_request.head.ref, 'codex/')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ github.event.pull_request.number || inputs.pull_request }}
+    steps:
+      - name: Resolve trusted pull-request metadata
+        id: pr
+        run: |
+          pr_json="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json headRefName,headRepositoryOwner,isCrossRepository,author,state)"
+          head_branch="$(jq -r '.headRefName' <<<"$pr_json")"
+          head_owner="$(jq -r '.headRepositoryOwner.login' <<<"$pr_json")"
+          author="$(jq -r '.author.login' <<<"$pr_json")"
+          state="$(jq -r '.state' <<<"$pr_json")"
+          cross_repo="$(jq -r '.isCrossRepository' <<<"$pr_json")"
+          if [[ "$state" != "OPEN" || "$cross_repo" != "false" || "$head_owner" != "$GITHUB_REPOSITORY_OWNER" || "$author" != "$GITHUB_REPOSITORY_OWNER" || "$head_branch" != codex/* ]]; then
+            echo "Refusing privileged automation for an untrusted or ineligible pull request."
+            exit 1
+          fi
+          echo "head_branch=$head_branch" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether Anthropic is configured
+        id: anthropic
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [[ -n "$ANTHROPIC_API_KEY" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "ANTHROPIC_API_KEY is not configured; AI review and repair are unavailable."
+          fi
+
+      - name: Check out the pull-request branch
+        if: steps.anthropic.outputs.configured == 'true'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.pr.outputs.head_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        if: steps.anthropic.outputs.configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Review, resolve conflicts, fix failures, and update the PR
+        if: steps.anthropic.outputs.configured == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          allowed_bots: github-actions
+          prompt: |
+            Work autonomously on pull request #${{ env.PR_NUMBER }} in ${{ github.repository }}.
+            Follow CLAUDE.md. Inspect the complete diff against origin/main and the current git status.
+            Begin by running git fetch origin main and git merge --no-edit origin/main. If that merge leaves
+            conflicts, resolve every conflict while preserving shipped fixes
+            from main and the pull request's intended feature. Review the resulting change for concrete
+            correctness, security, privacy, data-loss, build, and financial-model integrity problems and
+            fix any you find. Run npm test, npm run lint, npm run typecheck, and npm run build; diagnose and
+            repair failures without asking the repository owner. Do not weaken checks, invent data, or expose
+            secrets. Commit all justified repairs and merge resolutions and push them to the current PR branch.
+            If no change is needed, leave the branch unchanged. Stop only for a genuinely ambiguous product
+            decision that cannot be resolved from the README, PR description, tests, or existing behavior.
+          claude_args: >-
+            --max-turns 16
+            --allowedTools "Bash(git:*),Bash(npm:*),Read,Edit,Write,Glob,Grep"
+
+      - name: Confirm branch is clean and checks pass
+        if: steps.anthropic.outputs.configured == 'true'
+        run: |
+          test -z "$(git diff --name-only --diff-filter=U)"
+          npm test
+          npm run lint
+          npm run typecheck
+          npm run build
+
+      - name: Mark ready and enable automatic merge
+        if: steps.anthropic.outputs.configured == 'true'
+        run: |
+          if [[ "$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')" == "true" ]]; then
+            gh pr ready "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
+          fi
+          gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --squash --auto --delete-branch

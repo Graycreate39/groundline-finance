@@ -1,0 +1,48 @@
+name: Groundline CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: groundline-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Test, lint, typecheck, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run finance-engine tests
+        run: npm test
+
+      - name: Run static checks
+        run: npm run lint
+
+      - name: Run type checks
+        run: npm run typecheck
+
+      - name: Verify production build
+        run: npm run build
+
+      - name: Reject unresolved conflict markers
+        run: |
+          if git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- ':!package-lock.json'; then
+            echo "Unresolved merge-conflict markers remain."
+            exit 1
+          fi

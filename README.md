@@ -1,101 +1,110 @@
 # Groundline
 
-Groundline is a **local-hosted, research-first finance workspace**. A user starts with a real company name or U.S. ticker, inspects the resolved legal entity and official evidence, reviews gaps and proposed assumptions, then generates a deterministic model whose outputs remain linked to source claims.
+Groundline is a **local-first, auditable finance and strategic-decision workspace**. It connects evidence, provenance, assumptions, deterministic formulas, scenarios, valuation outputs, and decision records rather than treating finance as a collection of opaque calculators.
 
-The product does not use GitHub Pages as its intended runtime: live research requires the included local server so requests and optional credentials never enter browser code.
+> All four bundled companies, peers, documents, and figures are fictional. Bundled evidence is an offline demonstration snapshot dated **6 September 2026**, not live research.
 
 ## Quick start
 
-Requirements: Node.js 20+. There are no third-party package dependencies.
+Requires Python 3.10+ and Node.js 20+; there are no third-party runtime dependencies.
+
+```bash
+npm run dev
+# open http://localhost:4173
+```
+
+The application opens Arcwell Cloud. Use the company switcher for Northstar Robotics, Meridian Components, and Fieldnote Health. Data and UI state persist in browser `localStorage` under `groundline-state`; clear site data to reset the demo safely.
+
+### Optional local research API
+
+The repository also includes an additive local server for SEC EDGAR research. It keeps outbound requests, the required SEC user agent, and durable evidence records outside browser code while continuing to serve the existing application.
 
 ```bash
 cp .env.example .env
-# Edit SEC_USER_AGENT to identify yourself to SEC.gov.
-npm run dev
-# http://127.0.0.1:4173
+# Set SEC_USER_AGENT in .env to your name and contact email.
+npm run research
+# open http://127.0.0.1:4173
 ```
 
-Enter `AAPL` to exercise the public-company path. Groundline resolves the SEC registrant, downloads SEC submissions and XBRL company facts, normalizes current filing claims, and stores the workspace locally. SEC asks automated clients to declare a user agent and respect fair-access limits.
+`POST /api/research` accepts a U.S. public-company ticker or name and an objective. Reported facts retain SEC filing provenance; unavailable providers return an explicit incomplete state rather than invented values. Records are written atomically to `.groundline/data.json` by default. The bundled browser workspace remains the primary UI while the research API is an integration boundary for a later evidence-first workflow.
 
-Local records are written atomically to `.groundline/data.json` by default (mode 0600). Change `GROUNDLINE_DATA_PATH` in `.env` if desired. That directory and environment files are ignored by Git.
+## Product thesis and audience
 
-## First-run workflow
+Groundline is for startup finance teams, corporate FP&A, investors, and strategy leaders who need an answer **and** a defensible trail explaining it. The interface progressively discloses conclusion → composition → schedule → formula → assumptions → evidence → history.
 
-1. **Research a company** — enter a public ticker/name, private company, sector, or concept and select valuation, operating model, comparables, financing, or decision analysis.
-2. **Resolve identity** — inspect legal name, ticker, exchange, country, SIC sector, CIK, match confidence, and the SEC submissions source.
-3. **Review the plan** — see identity, filing collection, claim normalization, market-data requirements, and model-generation readiness.
-4. **Inspect claims** — each reported fact retains company, metric, value, unit/currency, period, filing type/date, retrieval time, XBRL location, confidence, provenance, model-use flag, and direct filing link.
-5. **Assess coverage** — distinguish reported, externally sourced, inferred, estimated, contradictory, stale, and missing inputs.
-6. **Confirm assumptions** — accept or edit bounded estimates, with method, rationale, range, confidence, and supporting evidence.
-7. **Generate the model** — deterministic calculation code, never an LLM, produces schedules and outputs and rejects non-finite inputs.
+## Implemented workflows
 
-If SEC, network access, a market-data provider, or a fact is unavailable, the workflow stops in a named incomplete state with the missing dependency and next action. It never substitutes fictional values. Current market capitalization is intentionally shown as incomplete until an optional market-data adapter is configured.
+- Four fictional workspaces spanning SaaS, early-stage, capital-intensive, and new-initiative archetypes.
+- Dense operating-model table with actual/forecast periods, stable metric IDs, provenance, formula detail, precedents, evidence, plausible range, override/revert UI, and audit attribution.
+- Deterministic DCF, terminal value, EV-to-equity bridge, two-way sensitivity, and inspectable free-cash-flow schedule.
+- Comparable-company inclusion/exclusion with immediate median and implied-value recalculation.
+- Monthly revenue, burn and runway; hiring scenario; financing, option-pool effects, ownership, MOIC, and IRR.
+- Base, Downside, and Upside scenario patches, side-by-side comparisons, and sequential change attribution with residual disclosure.
+- Bounded reverse solver for a target enterprise value.
+- Provider-independent analyst surface. Credential-free demo mode parses bundled questions into typed proposed actions and never claims an external model is active.
+- Evidence/claim register, coverage, conflicts/staleness signals, and a documented information-priority heuristic.
+- Persisted decision records linked to model version and scenarios.
+- Model health and lint signals for bridge reconciliation, terminal concentration, evidence age, and ownership.
 
-## Modes
+## Demo walkthrough
 
-### Real research mode
-
-Uses the local `/api/research` endpoint and the official SEC EDGAR submissions and company-facts APIs. Configure `SEC_USER_AGENT`. Optional market-data and research providers belong behind server-side adapters using local environment variables.
-
-### Credential-free example mode
-
-“Explore examples” contains four clearly marked fictional, bundled datasets dated 6 September 2026. These examples are secondary to live research. Their numbers are never labeled as company-reported facts.
+1. Open **Overview** to read the current conclusion, outputs, scenario range, and model health.
+2. Open **Model**, select Revenue or EBITDA, and inspect its formula/evidence. Apply an override and observe the recalculation confirmation/audit event.
+3. Open **Scenarios** and compare the deliberate operating patches and valuation bridge.
+4. Open **Valuation**, inspect DCF/WACC/terminal mechanics, toggle a peer, and use **Reverse-underwrite target**.
+5. Switch to **Northstar Robotics** or open **Capital & ownership**. Add a hiring cohort or round and review runway/dilution.
+6. Ask one of the analyst’s bundled questions; review its typed interpretation before applying it.
+7. Open **Decisions**, save the recommendation, reload, and verify it remains in local storage.
 
 ## Architecture
 
 ```text
-server/server.mjs          local HTTP application and JSON API
-server/providers/sec.mjs   SEC EDGAR identity/facts adapter
-server/store.mjs           atomic, durable local JSON persistence
-server/model.mjs           evidence-to-model generation and input validation
-src/app.mjs                research-first browser interface
-src/engine.mjs             deterministic finance calculations
-src/styles.css             responsive editorial design system
-tests/                     finance, provider, provenance, and failure tests
+index.html                 local application entry
+src/app.mjs                feature views, interactions, local persistence
+src/engine.mjs             deterministic calculations and validation
+src/data/demo.mjs          fictional normalized demo data
+src/styles.css             responsive design system and components
+tests/engine.test.mjs      critical finance-engine tests
+docs/                      focused modeling and product methodology
+screenshots/               application states captured for documentation
+scripts/                    dependency-free quality/build utilities
+server/                     optional local SEC research API and durable store
 ```
 
-Provider adapters return typed, normalized research results. The local server owns outbound requests and credentials. The persistence boundary can be replaced with SQLite later without changing provider or modeling interfaces. Browser `localStorage` is no longer the system of record.
+The static front end is deliberately deployable later without changing domain calculations. Provider interfaces and a durable embedded database are the next architectural boundary; the current local slice uses browser storage to remain zero-install.
 
-## Provenance
+## Modeling and data conventions
 
-Groundline uses five visible categories:
+- Money is modeled in USD millions unless explicitly noted; calculations retain JavaScript double precision and display rounding occurs only at the UI boundary.
+- Rates are decimals internally; periods are aligned explicitly by schedule index and labeled annual/monthly in the interface.
+- Provenance categories are **Reported**, **Externally sourced**, **Inferred**, **Model-estimated**, and **User-entered/manually overridden**. Text and markers accompany color.
+- DCF uses unlevered cash flow and Gordon Growth terminal value. Terminal WACC must exceed growth.
+- Scenario changes are patches over a versioned baseline. Sequential attribution is order-dependent; any interaction is shown as residual rather than forced into a driver.
+- Information priority is a transparent impact × uncertainty × evidence weakness × verifiability heuristic, not Bayesian value of information.
 
-- **Reported** — only a value obtained from a real company disclosure such as an SEC filing.
-- **Externally sourced** — a value from a third-party public source.
-- **Inferred** — a conclusion derived from evidence but not directly disclosed.
-- **Model-estimated** — a deterministic estimate with method, rationale, range, and confidence.
-- **User-entered or manually overridden** — a retained human change that does not erase its prior value.
+See [financial modeling](docs/modeling.md), [research and estimation](docs/research.md), [scenario/version semantics](docs/scenarios.md), [AI boundaries](docs/ai-safety.md), and [demo provenance](docs/demo-data.md).
 
-See [research methodology](docs/research.md), [modeling methodology](docs/modeling.md), [AI and numerical boundaries](docs/ai-safety.md), and [demo-data provenance](docs/demo-data.md).
+## Privacy and providers
 
-## Numerical integrity
+The default static application makes no network request and needs no credentials. Imported/private data should remain local; this first slice does not log or transmit it. The optional local research server makes server-side requests to SEC EDGAR only when asked and stores its records locally. Live AI and other research adapters remain deferred until a user supplies a provider and credentials through an uncommitted local environment file. The current analyst identifies itself as a deterministic demo interpreter.
 
-Calculation entry points reject missing, `NaN`, infinite, or incompatible critical inputs. DCF also rejects WACC at or below terminal growth and non-positive share counts; runway rejects non-finite values and invalid horizons. UI formatters only receive validated outputs. Tests cover valid calculations and invalid/incomplete states.
-
-## Commands
+## Quality commands
 
 ```bash
 npm test
 npm run lint
 npm run typecheck
 npm run build
-npm start
 ```
-
-## Privacy
-
-Research data and audit events remain on the local machine. Groundline does not ship telemetry. `.env`, `.env.local`, provider keys, and `.groundline/` are excluded from Git. SEC requests include the configured user agent. Imported financial data is not written to application logs.
-
-## Current limitations
-
-- SEC EDGAR supports U.S. registrants and filing-based facts; taxonomy variation can leave gaps.
-- A market-data provider is not bundled, so live price, market capitalization, and enterprise value remain explicitly incomplete.
-- Private-company collection currently presents the cautious workflow and next actions; automated funding/pricing/hiring adapters and document upload are next.
-- The first durable store is atomic local JSON rather than SQLite. It persists workspaces/evidence/audit history but does not yet support concurrent processes or migrations beyond its schema version.
-- Optional LLM and additional research adapters are not implemented. The compact command surface does not impersonate an AI provider.
-- Formula authoring, multi-currency curves, advanced debt schedules, and liquidation waterfalls remain deferred.
-- Live SEC verification depends on local network access to `data.sec.gov` and `www.sec.gov`.
 
 ## Screenshots
 
-Updated research-first documentation captures live in [`screenshots/`](screenshots/). They cover the primary company-research entry, active evidence collection, coverage/evidence review, incomplete-provider state, and generated model foundation.
+Documentation images are in [`screenshots/`](screenshots/): overview, operating model, evidence drill-down, scenario comparison, valuation, startup capital, and decision record.
+
+## Limitations and roadmap
+
+**Real now:** deterministic core formulas, local scenarios/UI state, demo parser, bundled evidence, DCF/comps, runway/financing, reverse solve, decisions, responsive workspace, and finance unit tests.
+
+**Intentionally deferred:** live market data and research, LLM providers, PDF/OCR extraction, robust CSV/JSON import UI, multi-currency FX curves, debt schedules and liquidation waterfalls beyond a simple 1× non-participating case, precedent transactions, formula authoring/cycle UI, multi-user collaboration, and a production database/migrations. Buttons that represent local intake scaffolding return an explicit saved/local response rather than pretending a provider ran.
+
+A production extension should add SQLite migrations behind a persistence interface, formal runtime schemas for imports, formula AST/unit checking, browser E2E coverage, and encrypted local provider secrets—without moving calculations into an LLM.
