@@ -1,0 +1,59 @@
+name: Merge Green Codex PRs
+
+on:
+  workflow_run:
+    workflows: [Groundline CI]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: merge-green-codex-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    name: Validate and merge
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Merge a trusted, tested Codex PR
+        run: |
+          pr_number="$(jq -r '.workflow_run.pull_requests[0].number // empty' "$GITHUB_EVENT_PATH")"
+          if [[ -z "$pr_number" ]]; then
+            echo "The successful CI run is not attached to a pull request."
+            exit 0
+          fi
+
+          pr_json="$(gh pr view "$pr_number" --repo "$GITHUB_REPOSITORY" --json number,state,isDraft,mergeable,headRefName,headRefOid,headRepositoryOwner,isCrossRepository,author)"
+          state="$(jq -r '.state' <<<"$pr_json")"
+          head_branch="$(jq -r '.headRefName' <<<"$pr_json")"
+          head_sha="$(jq -r '.headRefOid' <<<"$pr_json")"
+          head_owner="$(jq -r '.headRepositoryOwner.login' <<<"$pr_json")"
+          author="$(jq -r '.author.login' <<<"$pr_json")"
+          cross_repo="$(jq -r '.isCrossRepository' <<<"$pr_json")"
+          mergeable="$(jq -r '.mergeable' <<<"$pr_json")"
+
+          if [[ "$state" != "OPEN" || "$cross_repo" != "false" || "$head_owner" != "$GITHUB_REPOSITORY_OWNER" || "$author" != "$GITHUB_REPOSITORY_OWNER" || "$head_branch" != codex/* ]]; then
+            echo "Skipping an untrusted or ineligible pull request."
+            exit 0
+          fi
+          if [[ "$head_sha" != "$TESTED_SHA" ]]; then
+            echo "The pull request changed after this CI run; a newer run will handle it."
+            exit 0
+          fi
+          if [[ "$mergeable" != "MERGEABLE" ]]; then
+            echo "The pull request is not cleanly mergeable."
+            exit 0
+          fi
+
+          if [[ "$(jq -r '.isDraft' <<<"$pr_json")" == "true" ]]; then
+            gh pr ready "$pr_number" --repo "$GITHUB_REPOSITORY"
+          fi
+          gh pr merge "$pr_number" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$TESTED_SHA"
