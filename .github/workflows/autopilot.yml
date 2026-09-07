@@ -85,16 +85,6 @@ jobs:
         with:
           node-version: 20
 
-      - name: Merge the latest main branch
-        if: steps.anthropic.outputs.configured == 'true'
-        id: merge
-        continue-on-error: true
-        run: |
-          git config user.name "groundline-autopilot[bot]"
-          git config user.email "groundline-autopilot[bot]@users.noreply.github.com"
-          git fetch origin main
-          git merge --no-edit origin/main
-
       - name: Review, resolve conflicts, fix failures, and update the PR
         if: steps.anthropic.outputs.configured == 'true'
         uses: anthropics/claude-code-action@v1
@@ -103,7 +93,8 @@ jobs:
           prompt: |
             Work autonomously on pull request #${{ env.PR_NUMBER }} in ${{ github.repository }}.
             Follow CLAUDE.md. Inspect the complete diff against origin/main and the current git status.
-            If the attempted merge left conflicts, resolve every conflict while preserving shipped fixes
+            Begin by running git fetch origin main and git merge --no-edit origin/main. If that merge leaves
+            conflicts, resolve every conflict while preserving shipped fixes
             from main and the pull request's intended feature. Review the resulting change for concrete
             correctness, security, privacy, data-loss, build, and financial-model integrity problems and
             fix any you find. Run npm test, npm run lint, npm run typecheck, and npm run build; diagnose and

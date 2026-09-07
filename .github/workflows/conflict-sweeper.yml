@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: read
+  actions: write
   contents: write
   issues: write
   pull-requests: write
@@ -36,10 +36,14 @@ jobs:
           echo "number=$number" >> "$GITHUB_OUTPUT"
 
   repair:
-    name: Repair and queue PR
+    name: Dispatch repair for PR
     needs: find
     if: needs.find.outputs.number != ''
-    uses: ./.github/workflows/autopilot.yml
-    with:
-      pull_request: ${{ fromJSON(needs.find.outputs.number) }}
-    secrets: inherit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ needs.find.outputs.number }}
+    steps:
+      - name: Start a supported autopilot event
+        run: gh workflow run autopilot.yml --repo "$GITHUB_REPOSITORY" --ref main -f pull_request="$PR_NUMBER"
