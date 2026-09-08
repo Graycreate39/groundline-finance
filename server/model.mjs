@@ -14,7 +14,12 @@ const estimate = ({id, label, low, high, unit = 'USD', formula, confidence, evid
 });
 
 function privateProfile(workspace) {
-  const description = String((workspace.evidence?.claims || []).find(claim => claim.metricId === 'company-description')?.value || '').toLowerCase();
+  const description = (workspace.evidence?.claims || [])
+    .filter(claim => ['company-description', 'identity-context'].includes(claim.metricId))
+    .map(claim => String(claim.value || '')).join(' ').toLowerCase();
+  if (/vertical farm|urban farm|indoor farm|microgreen|hydroponic|brewery|taproom/.test(description)) {
+    return {name: 'local indoor agriculture and hospitality', revenue: 3e6, revenueBand: 0.25, margin: 0.02, marginBand: 0.08, multiple: 1.4, valuationBand: 0.3};
+  }
   if (/biotech|laborator|robot|hardware|manufactur|medical|device/.test(description)) {
     return {name: 'specialized hardware and life sciences', revenue: 75e6, revenueBand: 0.2, margin: -0.07, marginBand: 0.05, multiple: 4.25, valuationBand: 0.2};
   }
@@ -24,7 +29,7 @@ function privateProfile(workspace) {
   if (/retail|restaurant|consumer|commerce|food|apparel/.test(description)) {
     return {name: 'consumer and commerce', revenue: 50e6, revenueBand: 0.2, margin: 0.06, marginBand: 0.06, multiple: 1.8, valuationBand: 0.2};
   }
-  return {name: 'private-company broad prior', revenue: 50e6, revenueBand: 0.3, margin: 0.02, marginBand: 0.1, multiple: 3, valuationBand: 0.3};
+  return {name: 'broad private-company', revenue: 50e6, revenueBand: 0.3, margin: 0.02, marginBand: 0.1, multiple: 3, valuationBand: 0.3};
 }
 
 function privateModel(workspace, claims) {

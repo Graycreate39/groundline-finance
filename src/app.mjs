@@ -71,7 +71,8 @@ function researchForm() {
       <option value="comparables">Comparable companies</option><option value="financing">Financing analysis</option>
       <option value="strategic-decision">Strategic decision</option>
     </select></label>
-    <label class="website-field"><span>Official website <small>optional, useful for private companies</small></span><input name="website" type="url" placeholder="https://company.com"></label>
+    <label class="website-field"><span>Official website <small>strongly recommended for private companies</small></span><input name="website" type="url" placeholder="https://company.com"></label>
+    <label class="context-field"><span>Location or distinguishing details <small>helps prevent similarly named matches</small></span><textarea name="context" placeholder="Brooklyn, NY · vertical farm and taproom"></textarea></label>
     <button class="primary" type="submit" ${state.busy ? 'disabled' : ''}>${state.busy ? 'Collecting evidence…' : 'Research company'}</button>
     <div class="form-message-slot">${state.error ? `<p class="form-message error" role="alert">${escapeHtml(state.error)}</p>` : offline ? `<p class="form-message warning">The published site is a safe preview. Run <code>npm run dev</code> locally to use live research and keep credentials server-side.</p>` : ''}</div>
   </form>`;
@@ -92,7 +93,7 @@ function workspaceView() {
   return `<main id="main" class="workspace">
     <nav class="backline"><button data-action="home">← Research another company</button><span>Current as of ${new Date(current).toLocaleString()}</span></nav>
     <section class="identity">
-      <div><p class="overline">${escapeHtml(w.kind === 'live-research' ? 'Resolved company' : 'Private-company workspace')}</p><h1>${escapeHtml(w.identity.legalName)}</h1><p>${[w.identity.ticker, w.identity.exchange, w.identity.country, w.identity.sector].filter(Boolean).map(escapeHtml).join(' · ')}</p></div>
+      <div><p class="overline">${escapeHtml(w.kind === 'live-research' ? 'Resolved company' : 'Private-company workspace')}</p><h1>${escapeHtml(w.identity.legalName)}</h1><p>${[w.identity.ticker, w.identity.exchange, w.identity.location || w.identity.country, w.identity.sector].filter(Boolean).map(escapeHtml).join(' · ')}</p></div>
       <div class="confidence"><span>Identity confidence</span><strong>${Math.round((w.identity.confidence || 0) * 100)}%</strong></div>
     </section>
     ${state.notice ? `<p class="notice" role="status">${escapeHtml(state.notice)}</p>` : ''}

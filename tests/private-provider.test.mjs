@@ -25,6 +25,46 @@ test('private-company research keeps public evidence distinct from financial fac
   assert(model.outputs.every(output => output.provenance === 'Model-estimated'));
 });
 
+test('official website and distinguishing context prevent a similarly named company match', async () => {
+  const html = `<!doctype html><html><head>
+    <meta property="og:site_name" content="Farm.One">
+    <meta name="description" content="The neighborhood vertical farm at 625 Bergen Street in Brooklyn, NYC, with a brewery and taproom.">
+    <title>Farm.One</title>
+  </head></html>`;
+  const calls = [];
+  const fetcher = async url => {
+    calls.push(String(url));
+    return {ok: true, text: async () => html};
+  };
+  const result = await researchPrivateCompany('farm.one', {
+    website: 'https://farm.one/',
+    context: 'Brooklyn, NY · vertical farm and taproom',
+    fetcher,
+    now: new Date('2026-09-08T12:00:00Z')
+  });
+  assert.equal(result.identity.legalName, 'Farm.One');
+  assert.equal(result.identity.location, 'Brooklyn, New York, United States');
+  assert.equal(result.identity.sector, 'Indoor agriculture, food & hospitality');
+  assert.equal(result.identity.sourceUrl, 'https://farm.one/');
+  assert.equal(result.evidence.claims[0].sourceType, 'Official website');
+  assert(result.evidence.claims.some(claim => claim.provenance === 'User-entered'));
+  assert.deepEqual(calls, ['https://farm.one/']);
+  const model = generateInitialModel(result);
+  assert.equal(model.assumptions[0].value, 'local indoor agriculture and hospitality');
+  assert.equal(model.outputs.find(output => output.id === 'base-revenue').value, 3_000_000);
+});
+
+test('ambiguous public search results are rejected rather than silently substituted', async () => {
+  const fetcher = async () => ({
+    ok: true,
+    json: async () => ({query: {search: [{title: 'Kings County Cemetery (Brooklyn)'}]}})
+  });
+  await assert.rejects(
+    () => researchPrivateCompany('farm.one', {fetcher}),
+    error => error.code === 'IDENTITY_NOT_VERIFIED' && error.message.includes('could not verify')
+  );
+});
+
 test('manual claims persist with user-entered provenance and reject non-finite values', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'groundline-store-'));
   const store = new LocalStore(path.join(dir, 'data.json'));
