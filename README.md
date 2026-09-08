@@ -23,7 +23,7 @@ The GitHub Pages site is a safe interface preview. Live SEC research requires th
 - Search a U.S. public company by ticker, name, or CIK.
 - Resolve its legal entity, ticker, exchange, location, sector, and match confidence.
 - Collect current SEC EDGAR submissions and company facts with filing links, periods, retrieval timestamps, XBRL locations, and provenance.
-- Research a private company through a public-reference adapter, while leaving undisclosed financials explicitly missing.
+- Research a private company through a public-reference adapter and generate visibly labeled point estimates with compact expected ranges for unavailable financials.
 - Add manual financial evidence. Manual values are always labeled **User-entered**.
 - Show the research plan, coverage categories, evidence register, source links, initial model outputs, and material gaps.
 - Persist workspaces and an audit trail locally.
@@ -43,9 +43,9 @@ Each claim retains its metric, value, unit, currency, reporting period, source U
 
 ## Public and private companies
 
-Public-company research uses official SEC EDGAR data. SEC facts alone do not provide current market price or market capitalization, so those fields remain missing until an optional market-data adapter is configured.
+Public-company research uses official SEC EDGAR data. When current price data is unavailable, Groundline estimates market capitalization from reported fundamentals and a sector-adjusted multiple.
 
-Private-company research is deliberately cautious. Groundline can establish identity and organize public evidence, but it does not call estimated revenue or margins “reported.” Add management data manually or connect future search and market-data adapters to expand coverage.
+Private-company research uses public identity evidence and deterministic sector priors to produce a best estimate plus a compact expected range. Every such value remains labeled **Model-estimated**, carries low confidence, and is replaced when reported or user-entered evidence becomes available.
 
 ## Architecture
 
@@ -77,6 +77,6 @@ The test suite covers real-company SEC normalization, inspectable filing links, 
 ## Current limits
 
 - SEC research covers U.S. registrants and the financial concepts currently mapped in `server/providers/sec.mjs`.
-- Private-company financial research needs manual evidence or an additional search/data adapter.
-- Current share prices and market capitalization require an optional market-data provider.
+- Private-company estimates use sector priors until manual evidence or an additional search/data adapter provides company-specific financials.
+- Exact live share prices require an optional market-data provider; without one, market capitalization is estimated from reported fundamentals.
 - Generated images are product visuals; they never serve as company evidence.
