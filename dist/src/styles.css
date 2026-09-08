@@ -97,7 +97,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .output small { color: var(--color-muted); }
 .evidence-sheet { margin-top: var(--space-md); }
 .table-wrap { overflow: auto; }
-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table { width: 100%; min-width: 880px; table-layout: fixed; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th:nth-child(1), td:nth-child(1) { width: 18%; }
+th:nth-child(2), td:nth-child(2) { width: 30%; overflow-wrap: anywhere; line-height: 1.35; }
+th:nth-child(3), td:nth-child(3) { width: 12%; }
+th:nth-child(4), td:nth-child(4) { width: 14%; }
+th:nth-child(5), td:nth-child(5) { width: 18%; overflow-wrap: anywhere; }
+th:nth-child(6), td:nth-child(6) { width: 8%; }
 th, td { min-width: 110px; padding: var(--space-sm); border-top: var(--rule-hairline) solid var(--color-rule); text-align: left; vertical-align: top; font-size: var(--text-sm); }
 th { color: var(--color-muted); font-size: var(--text-xs); font-weight: 500; }
 td:first-child { min-width: 190px; }

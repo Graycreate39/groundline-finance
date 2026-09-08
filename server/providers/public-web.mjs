@@ -46,9 +46,9 @@ export async function researchPrivateCompany(query, {fetcher = fetch, now = new 
     plan: [
       {id: 'identity', label: 'Resolve company identity', status: match ? 'complete' : 'blocked', reason: match ? null : 'No public reference matched the name.', nextAction: match ? null : 'Add the official website or enter identity evidence manually.'},
       {id: 'public', label: 'Collect public company evidence', status: claims.length ? 'complete' : 'blocked', reason: claims.length ? null : 'No public source was collected.'},
-      {id: 'financials', label: 'Obtain company financials', status: 'blocked', reason: 'Private companies do not publish standardized SEC company facts.', nextAction: 'Upload or manually enter management financials, funding disclosures, pricing, or supported estimates.'},
+      {id: 'financials', label: 'Estimate unavailable company financials', status: 'ready', reason: 'Private companies do not publish standardized SEC company facts.', nextAction: 'Groundline will start with broad ranges and replace them as better evidence is added.'},
       {id: 'claims', label: 'Separate facts from estimates', status: 'ready'},
-      {id: 'model', label: 'Generate evidence-backed model', status: 'blocked', reason: 'No supported financial claims are available yet.', nextAction: 'Add financial evidence; Groundline will not invent it.'}
+      {id: 'model', label: 'Generate range-based model', status: 'ready', reason: 'Low-confidence estimates remain visibly labeled and traceable.', nextAction: 'Add financial evidence to narrow the ranges.'}
     ]
   };
 }

@@ -18,6 +18,11 @@ const formatValue = claim => {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(claim.value);
 };
 
+const formatRange = output => {
+  if (!Number.isFinite(output.low) || !Number.isFinite(output.high) || output.low === output.high) return formatValue(output);
+  return `${formatValue({...output, value: output.low})}–${formatValue({...output, value: output.high})}`;
+};
+
 const statusLabel = status => ({ complete: 'Collected', ready: 'Ready', blocked: 'Missing' })[status] || status;
 const provenanceClass = value => String(value || '').toLowerCase().replace(/[^a-z]+/g, '-');
 
@@ -102,7 +107,7 @@ function workspaceView() {
         <ol class="plan">${(w.plan || []).map(item => `<li class="${escapeHtml(item.status)}"><i></i><div><b>${escapeHtml(item.label)}</b>${item.reason ? `<p>${escapeHtml(item.reason)}</p>` : ''}${item.nextAction ? `<small>${escapeHtml(item.nextAction)}</small>` : ''}</div><span>${escapeHtml(statusLabel(item.status))}</span></li>`).join('')}</ol>
       </section>
       <section class="sheet model-sheet"><div class="section-head"><div><p class="overline">Initial model</p><h2>Traceable outputs</h2></div><span>${escapeHtml(w.model?.status || 'incomplete')}</span></div>
-        ${outputs.length ? outputs.map(output => `<article class="output"><div><span>${escapeHtml(output.label)}</span><strong>${formatValue(output)}</strong></div><div><span class="provenance ${provenanceClass(output.provenance)}">${escapeHtml(output.provenance)}</span><small>${escapeHtml(output.formula)}</small></div></article>`).join('') : `<p class="empty">No financial output is supportable yet. Add evidence rather than substituting invented figures.</p>`}
+        ${outputs.length ? outputs.map(output => `<article class="output"><div><span>${escapeHtml(output.label)}</span><strong>${formatValue(output)}</strong>${Number.isFinite(output.confidence) ? `<small>${Number.isFinite(output.low) && output.low !== output.high ? `Expected range ${formatRange(output)} · ` : ''}${Math.round(output.confidence * 100)}% confidence</small>` : ''}</div><div><span class="provenance ${provenanceClass(output.provenance)}">${escapeHtml(output.provenance)}</span><small>${escapeHtml(output.formula)}</small></div></article>`).join('') : `<p class="empty">Groundline could not create even a broad numerical range from the available identity evidence.</p>`}
       </section>
     </div>
     <section class="sheet evidence-sheet"><div class="section-head"><div><p class="overline">Evidence register</p><h2>${claims.length} normalized claims</h2></div><span>Click a source to inspect it</span></div>
