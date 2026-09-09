@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import {ProviderError} from './sec.mjs';
+import {collectPrivateCompanyResearch} from './web-search.mjs';
 
 const WIKIPEDIA = 'https://en.wikipedia.org';
 const LEGAL_SUFFIX = /\b(incorporated|corporation|company|limited|inc|corp|co|llc|ltd|plc)\b/g;
@@ -70,8 +71,9 @@ function inferIdentityDetails(text) {
     : /new york|nyc/.test(value) ? 'New York, United States' : null;
   const country = /\b(united states|usa|u\.s\.|new york|nyc|brooklyn)\b/.test(value) ? 'United States' : null;
   const sector = /vertical farm|urban farm|microgreen|hydroponic|brewery|taproom/.test(value) ? 'Indoor agriculture, food & hospitality'
-    : /software|platform|fintech|cloud|subscription/.test(value) ? 'Software and technology'
-      : /restaurant|retail|consumer|food|apparel/.test(value) ? 'Consumer and commerce' : 'Not yet established';
+    : /artificial intelligence|large language model|generative ai/.test(value) ? 'Artificial intelligence'
+      : /software|platform|fintech|cloud|subscription/.test(value) ? 'Software and technology'
+        : /restaurant|retail|consumer|food|apparel/.test(value) ? 'Consumer and commerce' : 'Not yet established';
   return {location, country, sector};
 }
 
@@ -144,13 +146,15 @@ export async function researchPrivateCompany(query, {fetcher = fetch, now = new 
   const resolved = String(website || '').trim()
     ? await researchOfficialWebsite(query, website, context, fetcher, retrievedAt)
     : await researchExactWikipedia(query, context, fetcher, retrievedAt);
+  const research = await collectPrivateCompanyResearch(resolved.identity, {fetcher, now, website, context});
+  const claims = [...resolved.claims, ...research.claims];
   return {
     identity: resolved.identity,
-    evidence: {provider: resolved.identity.sourceUrl?.includes('wikipedia.org') ? 'Wikipedia' : 'Official company website', providerUrl: resolved.identity.sourceUrl, retrievedAt, claims: resolved.claims},
+    evidence: {provider: 'Multi-source public web research', providerUrl: resolved.identity.sourceUrl, retrievedAt, claims, searches: research.queries},
     plan: [
       {id: 'identity', label: 'Resolve company identity', status: 'complete', reason: `Matched ${resolved.identity.legalName} to ${resolved.identity.sourceUrl}.`},
-      {id: 'public', label: 'Collect public company evidence', status: resolved.claims.some(claim => claim.provenance === 'Externally sourced') ? 'complete' : 'blocked'},
-      {id: 'financials', label: 'Estimate unavailable company financials', status: 'ready', reason: 'Private companies do not publish standardized SEC company facts.', nextAction: 'Groundline will start with ranges and replace them as better evidence is added.'},
+      {id: 'public', label: 'Search public company evidence', status: research.sourceCount ? 'complete' : 'blocked', reason: research.sourceCount ? `Collected ${research.sourceCount} additional public sources.` : 'No additional relevant public sources were found.', nextAction: research.sourceCount ? null : 'Add an official website or enter company evidence manually.'},
+      {id: 'financials', label: 'Collect funding, valuation, revenue, and scale evidence', status: research.financialClaimCount ? 'complete' : 'blocked', reason: research.financialClaimCount ? `Extracted ${research.financialClaimCount} traceable financial claims.` : 'The completed search did not find a usable financial claim.', nextAction: research.financialClaimCount ? 'Conflicting claims remain visible so recency and source quality can be inspected.' : 'Groundline will use a low-confidence sector estimate and identify the missing evidence.'},
       {id: 'claims', label: 'Separate facts from estimates', status: 'ready'},
       {id: 'model', label: 'Generate range-based model', status: 'ready', reason: 'Low-confidence estimates remain visibly labeled and traceable.', nextAction: 'Add financial evidence to narrow the ranges.'}
     ]
