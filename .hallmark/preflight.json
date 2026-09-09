@@ -1,0 +1,9 @@
+{
+  "date": "2026-09-09",
+  "framework": "vanilla HTML and JavaScript",
+  "fontStack": "display, serif, body, and mono token families",
+  "palette": "OKLCH paper, ink, rust accent, provenance states",
+  "motion": "motion-cut with one loading indicator",
+  "spacing": "4px and 8px token scale",
+  "preserved": ["paper-like financial character", "evidence provenance hierarchy", "local-first behavior"]
+}
