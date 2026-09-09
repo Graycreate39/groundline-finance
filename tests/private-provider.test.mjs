@@ -116,7 +116,9 @@ test('multi-source search collects current private-company valuation and revenue
   assert(!result.evidence.claims.some(claim => claim.label.includes('Revenue') && claim.value === 30e9));
   assert(result.evidence.claims.some(claim => claim.label === 'Annualized revenue run rate' && claim.value === 14e9));
   const model = generateInitialModel(result);
-  assert.equal(model.outputs.find(output => output.id === 'base-revenue').value, 65e9);
+  const revenueOutput = model.outputs.find(output => output.id === 'base-revenue');
+  assert.equal(revenueOutput.value, 65e9);
+  assert(revenueOutput.low < revenueOutput.value && revenueOutput.high > revenueOutput.value);
   assert.equal(model.outputs.find(output => output.id === 'market-cap').value, 965e9);
   assert.equal(model.assumptions.length, 1);
   assert(model.assumptions[0].rationale.includes('Company-specific revenue'));
@@ -139,7 +141,11 @@ test('monthly private-company revenue is annualized and preferred over a sector 
   assert.equal(revenue.location, 'Monthly revenue × 12');
   assert(!result.evidence.claims.some(claim => claim.metricId === 'funding-raised' && claim.value === 22_000_000));
   const model = generateInitialModel(result);
-  assert.equal(model.outputs.find(output => output.id === 'base-revenue').value, 1_200_000);
+  const revenueOutput = model.outputs.find(output => output.id === 'base-revenue');
+  assert.equal(revenueOutput.value, 1_200_000);
+  assert(revenueOutput.low < revenueOutput.value && revenueOutput.high > revenueOutput.value);
+  const equity = model.outputs.find(output => output.id === 'market-cap');
+  assert(equity.low < revenueOutput.low * 1.4 && equity.high > revenueOutput.high * 1.4);
   assert.equal(model.assumptions.length, 1);
   assert.equal(model.outputs.find(output => output.id === 'base-revenue').provenance, 'Externally sourced');
 });

@@ -8,11 +8,14 @@ const bestClaim = (claims, labels) => claims.filter(claim => labels.some(label =
     return (b.confidence || 0) - (a.confidence || 0) || b.value - a.value;
   })[0];
 
-const outputFromClaim = (claim, id, label = claim.label) => ({
-  id, label, value: claim.value, low: claim.value, high: claim.value, unit: claim.unit || 'USD',
-  currency: claim.currency || (claim.unit === 'USD' ? 'USD' : null), formula: claim.location || claim.sourceType || 'Collected evidence',
-  evidenceIds: [claim.id], provenance: claim.provenance, confidence: claim.confidence ?? 0.7
-});
+const outputFromClaim = (claim, id, label = claim.label) => {
+  const confidence = claim.confidence ?? 0.7;
+  const band = claim.provenance === 'Externally sourced' ? Math.max(0.05, Math.min(0.18, (1 - confidence) * 0.35)) : 0;
+  return {id, label, value: claim.value, low: claim.value * (1 - band), high: claim.value * (1 + band), unit: claim.unit || 'USD',
+    currency: claim.currency || (claim.unit === 'USD' ? 'USD' : null),
+    formula: `${claim.location || claim.sourceType || 'Collected evidence'}${band ? `; ±${Math.round(band * 100)}% source-confidence range` : ''}`,
+    evidenceIds: [claim.id], provenance: claim.provenance, confidence};
+};
 
 const estimate = ({id, label, low, high, unit = 'USD', formula, confidence, evidenceIds = []}) => ({
   id, label, value: midpoint(low, high), low, high, unit, currency: unit === 'USD' ? 'USD' : null,
@@ -87,12 +90,12 @@ function privateModel(workspace, claims) {
       unit: 'percent', formula: `${profile.name} maturity range`, confidence: 0.18, evidenceIds});
   const cash = cashClaim
     ? outputFromClaim(cashClaim, 'cash', 'Cash')
-    : estimate({id: 'cash', label: 'Estimated cash', low: revenue.value * 0.15, high: revenue.value * 0.25,
+    : estimate({id: 'cash', label: 'Estimated cash', low: revenue.low * 0.15, high: revenue.high * 0.25,
       formula: '20% of estimated annual revenue, shown with a ±25% range', confidence: 0.15, evidenceIds: revenue.evidenceIds});
   const equityValue = valuationClaim
     ? outputFromClaim(valuationClaim, 'market-cap', 'Equity value')
-    : estimate({id: 'market-cap', label: 'Estimated equity value', low: revenue.value * profile.multiple * (1 - profile.valuationBand),
-      high: revenue.value * profile.multiple * (1 + profile.valuationBand), formula: `${profile.multiple}× estimated revenue with a ±${Math.round(profile.valuationBand * 100)}% range; private-company illiquidity included`,
+    : estimate({id: 'market-cap', label: 'Estimated equity value', low: revenue.low * profile.multiple * (1 - profile.valuationBand),
+      high: revenue.high * profile.multiple * (1 + profile.valuationBand), formula: `${profile.multiple}× revenue with source uncertainty and a ±${Math.round(profile.valuationBand * 100)}% valuation range; private-company illiquidity included`,
       confidence: 0.15, evidenceIds: revenue.evidenceIds});
   return {
     status: 'estimated', outputs: [revenue, margin, cash, equityValue],
