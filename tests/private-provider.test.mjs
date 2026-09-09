@@ -145,7 +145,9 @@ test('monthly private-company revenue is annualized and preferred over a sector 
   assert.equal(revenueOutput.value, 1_200_000);
   assert(revenueOutput.low < revenueOutput.value && revenueOutput.high > revenueOutput.value);
   const equity = model.outputs.find(output => output.id === 'market-cap');
+  assert.equal(equity.value, revenueOutput.value * 1.4);
   assert(equity.low < revenueOutput.low * 1.4 && equity.high > revenueOutput.high * 1.4);
+  assert.equal(model.outputs.find(output => output.id === 'cash').value, revenueOutput.value * 0.2);
   assert.equal(model.assumptions.length, 1);
   assert.equal(model.outputs.find(output => output.id === 'base-revenue').provenance, 'Externally sourced');
 });
