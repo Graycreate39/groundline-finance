@@ -124,6 +124,27 @@ test('multi-source search collects current private-company valuation and revenue
   assert(model.assumptions[0].rationale.includes('Company-specific revenue'));
 });
 
+test('resolved identity evidence contributes stated private-company financials', async () => {
+  const fetcher = async url => {
+    const value = String(url);
+    if (value.includes('w/api.php')) return {ok: true, json: async () => ({query: {search: [{title: 'OpenAI'}]}})};
+    if (value.includes('page/summary')) return {ok: true, json: async () => ({
+      title: 'OpenAI',
+      extract: 'OpenAI closed a funding round at a post-money valuation of US$852 billion and is on track to exceed US$40 billion in annualized revenue.',
+      content_urls: {desktop: {page: 'https://en.wikipedia.org/wiki/OpenAI'}}
+    })};
+    return {ok: true, text: async () => '<html></html>'};
+  };
+  const result = await researchPrivateCompany('OpenAI', {fetcher, now: new Date('2026-09-09T12:00:00Z')});
+  assert(result.evidence.claims.some(claim => claim.metricId === 'post-money-valuation' && claim.value === 852e9));
+  assert(result.evidence.claims.some(claim => claim.metricId === 'annualized-revenue-run-rate' && claim.value === 40e9));
+  const model = generateInitialModel(result);
+  const valuation = model.outputs.find(output => output.id === 'market-cap');
+  assert.equal(valuation.value, 852e9);
+  assert.equal(valuation.low, valuation.value);
+  assert.equal(valuation.high, valuation.value);
+});
+
 test('monthly private-company revenue is annualized and preferred over a sector bucket', async () => {
   const searchHtml = `<html><body>
     <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fbrooklyn.news12.com%2Ffarm-one">Farm One grows hundreds of plants for restaurants across Brooklyn</a>

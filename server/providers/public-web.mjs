@@ -146,7 +146,7 @@ export async function researchPrivateCompany(query, {fetcher = fetch, now = new 
   const resolved = String(website || '').trim()
     ? await researchOfficialWebsite(query, website, context, fetcher, retrievedAt)
     : await researchExactWikipedia(query, context, fetcher, retrievedAt);
-  const research = await collectPrivateCompanyResearch(resolved.identity, {fetcher, now, website, context});
+  const research = await collectPrivateCompanyResearch(resolved.identity, {fetcher, now, website, context, seedEvidence: resolved.claims});
   const claims = [...resolved.claims, ...research.claims];
   return {
     identity: resolved.identity,
