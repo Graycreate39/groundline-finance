@@ -238,6 +238,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .kind-switch span { min-height: 48px; font-size: var(--text-2xs); }
   .research-image img { min-height: 320px; }
   .research-image figcaption { right: 0; border-right: 0; }
+  .workspace-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }
+  .workspace-nav a { min-width: 0; padding: 0 var(--space-2xs); white-space: normal; text-align: center; }
+  .workspace-nav a:nth-last-child(2) { grid-column: 1; }
+  .workspace-nav a:last-child { grid-column: 2 / 4; }
   .coverage-strip { grid-template-columns: 1fr; }
   .coverage-strip article { border-right: 0; border-bottom: var(--rule-hairline) solid var(--color-rule-dark); }
   .section-head { flex-direction: column; }

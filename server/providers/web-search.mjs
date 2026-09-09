@@ -13,6 +13,7 @@ function decodeHtml(value = '') {
 
 const plainText = value => decodeHtml(String(value || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
 const companyKey = value => String(value || '').toLowerCase().replace(/\b(incorporated|corporation|company|limited|inc|corp|co|llc|ltd|plc|pbc)\b/g, '').replace(/[^a-z0-9]+/g, '');
+const PAGE_HINT = /about|company|story|team|product|service|pricing|menu|event|tour|class|customer|press|news|blog|impact|location/i;
 
 function resultUrl(href) {
   try {
@@ -140,6 +141,27 @@ function amountClaims(result, company, retrievedAt, source) {
   return claims.filter(claim => claim.metricId !== 'funding-raised' || !valuationValues.has(claim.value));
 }
 
+function countClaims(result, company, retrievedAt, source) {
+  const text = `${result.title}. ${result.snippet}`;
+  const labels = {employees: ['Employees', 'employees'], staff: ['Employees', 'employees'], 'team members': ['Employees', 'employees'], 'person team': ['Employees', 'employees'], people: ['Employees', 'employees'], customers: ['Customers', 'customers'], clients: ['Customers', 'customers'], locations: ['Locations', 'locations'], sites: ['Locations', 'locations'], stores: ['Locations', 'locations'], facilities: ['Locations', 'locations']};
+  const claims = [], seen = new Set();
+  for (const match of text.matchAll(/\b([\d,.]+)\s*\+?\s*-?\s*(employees|staff|team members|person team|people|customers|clients|locations|sites|stores|facilities)\b/gi)) {
+    const value = Number(match[1].replaceAll(',', ''));
+    const [label, metricId] = labels[match[2].toLowerCase()] || [];
+    if (!label || !Number.isFinite(value) || value <= 0 || value > 10_000_000 || seen.has(metricId)) continue;
+    seen.add(metricId);
+    claims.push({
+      id: `scale-${crypto.createHash('sha1').update(`${result.url}:${metricId}:${value}`).digest('hex').slice(0, 14)}`,
+      companyId: companyKey(company), metricId, label, value, unit: 'count', currency: null,
+      periodStart: null, periodEnd: publicationDate(`${result.url} ${text}`), form: null, filingDate: null, accession: null,
+      sourceUrl: result.url, sourceTitle: result.title, sourceType: source.type, retrievedAt,
+      location: 'Search result title and excerpt', excerpt: result.snippet || result.title,
+      confidence: Math.max(0.42, source.confidence - 0.1), provenance: 'Externally sourced', usedInModel: ['employees', 'locations'].includes(metricId)
+    });
+  }
+  return claims;
+}
+
 function findingClaim(result, company, retrievedAt, source) {
   return {
     id: `finding-${crypto.createHash('sha1').update(result.url).digest('hex').slice(0, 14)}`,
@@ -161,6 +183,43 @@ async function search(query, fetcher) {
   } catch { return []; }
 }
 
+function pageSummary(html) {
+  const cleaned = String(html || '').replace(/<script\b[\s\S]*?<\/script>/gi, ' ').replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<nav\b[\s\S]*?<\/nav>/gi, ' ').replace(/<footer\b[\s\S]*?<\/footer>/gi, ' ');
+  const title = plainText(cleaned.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || 'Official company page');
+  const blocks = [...cleaned.matchAll(/<(?:h1|h2|p|li)\b[^>]*>([\s\S]*?)<\/(?:h1|h2|p|li)>/gi)]
+    .map(match => plainText(match[1])).filter(text => text.length >= 28);
+  return {title, snippet: blocks.join(' ').slice(0, 700)};
+}
+
+async function collectOfficialPages(website, fetcher) {
+  if (!website) return [];
+  let base;
+  try { base = new URL(website); } catch { return []; }
+  try {
+    const response = await fetcher(base, {headers: {'User-Agent': 'Mozilla/5.0 Groundline research/0.3', Accept: 'text/html'}});
+    if (!response.ok || typeof response.text !== 'function') return [];
+    const html = (await response.text()).slice(0, 2_000_000);
+    const urls = [...html.matchAll(/<a\b[^>]*href=["']([^"'#]+)["']/gi)].map(match => {
+      try {
+        const url = new URL(decodeHtml(match[1]), base);
+        url.hash = ''; url.search = '';
+        return url.hostname === base.hostname && PAGE_HINT.test(url.pathname) ? url.href : '';
+      } catch { return ''; }
+    }).filter(Boolean);
+    const unique = [...new Set(urls)].filter(url => url !== base.href).slice(0, 5);
+    const pages = await Promise.all(unique.map(async url => {
+      try {
+        const page = await fetcher(url, {headers: {'User-Agent': 'Mozilla/5.0 Groundline research/0.3', Accept: 'text/html'}});
+        if (!page.ok || typeof page.text !== 'function') return null;
+        const summary = pageSummary((await page.text()).slice(0, 2_000_000));
+        return summary.snippet ? {url, ...summary} : null;
+      } catch { return null; }
+    }));
+    return pages.filter(Boolean);
+  } catch { return []; }
+}
+
 export async function collectPrivateCompanyResearch(identity, {fetcher = fetch, now = new Date(), website = '', context = ''} = {}) {
   const name = identity.legalName;
   let officialDomain = '';
@@ -176,10 +235,12 @@ export async function collectPrivateCompanyResearch(identity, {fetcher = fetch, 
     officialDomain ? `site:${officialDomain} funding valuation revenue` : ''
   ].filter(Boolean);
   const batches = await Promise.all(queries.map(query => search(query, fetcher)));
+  const officialPages = await collectOfficialPages(website || identity.sourceUrl, fetcher);
   const key = companyKey(name);
   const seen = new Set();
-  const ranked = batches.flat().filter(result => {
-    const relevant = companyKey(`${result.title} ${result.snippet}`).includes(key);
+  const ranked = [...officialPages, ...batches.flat()].filter(result => {
+    let host = ''; try { host = new URL(result.url).hostname.replace(/^www\./, '').toLowerCase(); } catch {}
+    const relevant = (officialDomain && (host === officialDomain || host.endsWith(`.${officialDomain}`))) || companyKey(`${result.title} ${result.snippet}`).includes(key);
     if (!relevant || seen.has(result.url)) return false;
     seen.add(result.url);
     return true;
@@ -195,7 +256,8 @@ export async function collectPrivateCompanyResearch(identity, {fetcher = fetch, 
   const retrievedAt = now.toISOString();
   const claims = results.flatMap(result => [
     findingClaim(result, name, retrievedAt, result.source),
-    ...amountClaims(result, name, retrievedAt, result.source)
+    ...amountClaims(result, name, retrievedAt, result.source),
+    ...countClaims(result, name, retrievedAt, result.source)
   ]);
   return {
     claims,

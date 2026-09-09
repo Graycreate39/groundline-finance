@@ -50,12 +50,40 @@ test('official website and distinguishing context prevent a similarly named comp
   assert.equal(result.evidence.claims[0].sourceType, 'Official website');
   assert(result.evidence.claims.some(claim => claim.provenance === 'User-entered'));
   assert.equal(calls[0], 'https://farm.one/');
-  assert(calls.slice(1).every(url => url.startsWith('https://html.duckduckgo.com/html/')));
+  assert(calls.slice(1).some(url => url === 'https://farm.one/'));
+  assert(calls.slice(1).some(url => url.startsWith('https://html.duckduckgo.com/html/')));
   const model = generateInitialModel(result);
   assert.equal(model.assumptions[0].value, 'single-site indoor farm, taproom, events, and restaurant supply');
   assert.equal(model.outputs.find(output => output.id === 'base-revenue').value, 1_200_000);
   assert.equal(model.assumptions.length, 4);
   assert(model.outputs.find(output => output.id === 'base-revenue').formula.includes('$480k restaurant produce'));
+});
+
+test('official-site pages add company-specific evidence when search results are empty', async () => {
+  const home = `<html><head><meta property="og:site_name" content="Signal Forge"><meta name="description" content="Signal Forge builds inspection sensors in Pittsburgh."></head><body>
+    <a href="/about">About</a><a href="/products">Products</a><a href="https://outside.example/news">Outside</a>
+  </body></html>`;
+  const pages = {
+    'https://signalforge.example/about': '<html><title>About Signal Forge</title><h1>Built in Pittsburgh</h1><p>Our 42-person team designs industrial sensors for steel mills and rail operators.</p></html>',
+    'https://signalforge.example/products': '<html><title>Products</title><h1>Inspection systems</h1><p>Two installed product lines monitor high-temperature equipment for industrial customers.</p></html>'
+  };
+  const fetcher = async url => {
+    const value = String(url);
+    if (value.startsWith('https://html.duckduckgo.com')) return {ok: true, text: async () => '<html></html>'};
+    return {ok: true, text: async () => pages[value] || home};
+  };
+  const result = await researchPrivateCompany('Signal Forge', {website: 'https://signalforge.example/', fetcher, now: new Date('2026-09-09T12:00:00Z')});
+  const findings = result.evidence.claims.filter(claim => claim.metricId === 'research-finding');
+  assert.equal(findings.length, 2);
+  assert(findings.some(claim => claim.excerpt.includes('42-person team')));
+  assert(findings.every(claim => claim.sourceType === 'Company announcement'));
+  assert(result.evidence.claims.some(claim => claim.metricId === 'employees' && claim.value === 42 && claim.usedInModel));
+  assert(result.plan.some(item => item.id === 'public' && item.status === 'complete'));
+  const model = generateInitialModel(result);
+  const revenue = model.outputs.find(output => output.id === 'base-revenue');
+  assert.equal(revenue.value, 42 * 260_000);
+  assert(revenue.formula.includes('42 employees'));
+  assert.notEqual(revenue.value, 50_000_000);
 });
 
 test('multi-source search collects current private-company valuation and revenue evidence', async () => {

@@ -122,6 +122,7 @@ function workspaceView() {
   const current = w.evidence?.retrievedAt || w.updatedAt;
   const headline = outputs.find(output => output.id === 'market-cap') || outputs[0];
   const supporting = outputs.filter(output => output !== headline);
+  const modelEvidenceIds = new Set(outputs.flatMap(output => output.evidenceIds || []));
   return `<main id="main" class="workspace">
     <nav class="backline"><button data-action="home">← New research</button><span>Updated ${formatDate(current)}</span></nav>
     <section class="identity">
@@ -148,7 +149,7 @@ function workspaceView() {
         <ol class="plan">${(w.plan || []).map((item, index) => `<li class="${escapeHtml(item.status)}"><span class="plan-index">${String(index + 1).padStart(2, '0')}</span><div><b>${escapeHtml(item.label)}</b>${item.reason ? `<p>${escapeHtml(item.reason)}</p>` : ''}${item.nextAction ? `<small>${escapeHtml(item.nextAction)}</small>` : ''}</div><span>${escapeHtml(statusLabel(item.status))}</span></li>`).join('')}</ol>
       </section>
     </section>
-    ${evidenceSection(claims)}
+    ${evidenceSection(claims, modelEvidenceIds)}
     <section id="assumptions" class="assumption-section section-anchor"><div class="section-head"><div><p class="overline">Model assumptions / 04</p><h2>Judgment ledger</h2></div><span>${assumptions.length} active assumptions</span></div>
       ${assumptions.length ? `<div class="assumption-list">${assumptions.map((assumption, index) => `<article><span>${String(index + 1).padStart(2, '0')}</span><div><b>${escapeHtml(assumption.label)}</b><strong>${escapeHtml(assumption.value)}</strong></div><p>${escapeHtml(assumption.rationale)}</p><small>${Math.round((assumption.confidence || 0) * 100)}% confidence · ${escapeHtml(assumption.provenance)}</small></article>`).join('')}</div>` : '<p class="empty">No model assumptions are stored for this workspace.</p>'}
     </section>
@@ -159,10 +160,10 @@ function workspaceView() {
   </main>`;
 }
 
-function evidenceSection(claims) {
+function evidenceSection(claims, modelEvidenceIds = new Set()) {
   const query = state.evidenceQuery.trim().toLowerCase();
   const visible = claims.filter(claim => {
-    const filterMatch = state.evidenceFilter === 'all' || provenanceClass(claim.provenance) === state.evidenceFilter || (state.evidenceFilter === 'model-inputs' && claim.usedInModel);
+    const filterMatch = state.evidenceFilter === 'all' || provenanceClass(claim.provenance) === state.evidenceFilter || (state.evidenceFilter === 'model-inputs' && modelEvidenceIds.has(claim.id));
     const queryMatch = !query || [claim.label, claim.value, claim.sourceTitle, claim.sourceType, claim.location, claim.excerpt, claim.provenance].some(value => String(value || '').toLowerCase().includes(query));
     return filterMatch && queryMatch;
   });
@@ -171,13 +172,13 @@ function evidenceSection(claims) {
   ];
   return `<section id="evidence" class="evidence-section section-anchor"><div class="section-head"><div><p class="overline">Evidence register / 03</p><h2>${claims.length} traceable claims</h2></div><span>${visible.length} shown</span></div>
     <div class="evidence-tools"><div class="filter-group" aria-label="Filter evidence">${filters.map(([value, label]) => `<button class="${state.evidenceFilter === value ? 'is-active' : ''}" data-evidence-filter="${value}" aria-pressed="${state.evidenceFilter === value}">${label}</button>`).join('')}</div><label><span class="sr-only">Search evidence</span><input id="evidence-query" type="search" value="${escapeHtml(state.evidenceQuery)}" placeholder="Search claims or sources"></label></div>
-    ${visible.length ? `<div class="evidence-list">${visible.map(claim => evidenceItem(claim)).join('')}</div>` : '<p class="empty evidence-empty">No claims match this view.</p>'}
+    ${visible.length ? `<div class="evidence-list">${visible.map(claim => evidenceItem(claim, modelEvidenceIds.has(claim.id))).join('')}</div>` : '<p class="empty evidence-empty">No claims match this view.</p>'}
   </section>`;
 }
 
-function evidenceItem(claim) {
+function evidenceItem(claim, usedInModel) {
   const url = safeUrl(claim.sourceUrl);
-  return `<details class="evidence-item"><summary><span class="evidence-metric"><b>${escapeHtml(claim.label)}</b><small>${escapeHtml(claim.location || claim.sourceType || '')}</small></span><strong>${formatValue(claim)}</strong><span>${formatDate(claim.periodEnd)}</span><span class="provenance ${provenanceClass(claim.provenance)}">${escapeHtml(claim.provenance)}</span><span class="evidence-confidence"><i class="confidence-dot ${confidenceClass(claim.confidence || 0)}"></i>${Math.round((claim.confidence || 0) * 100)}%</span></summary><div class="evidence-detail"><p>${escapeHtml(claim.excerpt || 'No supporting excerpt was stored.')}</p><div>${claim.usedInModel ? '<span>Used in active model</span>' : '<span>Context only</span>'}${url ? `<a href="${url}" target="_blank" rel="noreferrer">Open source ↗</a>` : '<span>No external link</span>'}</div></div></details>`;
+  return `<details class="evidence-item"><summary><span class="evidence-metric"><b>${escapeHtml(claim.label)}</b><small>${escapeHtml(claim.location || claim.sourceType || '')}</small></span><strong>${formatValue(claim)}</strong><span>${formatDate(claim.periodEnd)}</span><span class="provenance ${provenanceClass(claim.provenance)}">${escapeHtml(claim.provenance)}</span><span class="evidence-confidence"><i class="confidence-dot ${confidenceClass(claim.confidence || 0)}"></i>${Math.round((claim.confidence || 0) * 100)}%</span></summary><div class="evidence-detail"><p>${escapeHtml(claim.excerpt || 'No supporting excerpt was stored.')}</p><div>${usedInModel ? '<span>Used in active model</span>' : '<span>Context only</span>'}${url ? `<a href="${url}" target="_blank" rel="noreferrer">Open source ↗</a>` : '<span>No external link</span>'}</div></div></details>`;
 }
 
 function manualClaimForm() {
