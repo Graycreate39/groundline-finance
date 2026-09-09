@@ -81,7 +81,7 @@ function privateModel(workspace, claims) {
     ...(profile.drivers || []).map(driver => ({...driver, provenance: 'Model-estimated', confidence: 0.25, evidenceIds}))],
     checks: [{id: 'finite', status: [revenue, margin, cash, equityValue].every(item => finite(item.value)) ? 'pass' : 'fail', message: 'All estimates must be finite.'}],
     gaps: [
-      !revenueClaim && {metric: 'Revenue evidence', material: true, reason: 'No traceable current revenue figure was found; the displayed value is a sector prior.', nextAction: 'Add a company announcement, financial report, or credible revenue estimate.'},
+      !revenueClaim && {metric: 'Revenue evidence', material: true, reason: `No traceable current revenue figure was found; the displayed value uses the ${profile.name} operating model.`, nextAction: 'Add a company announcement, financial report, or credible revenue estimate.'},
       !operatingClaim && {metric: 'Operating results', material: true, reason: 'No operating income or margin evidence was found.', nextAction: 'Add operating income, loss, or margin evidence to replace the sector estimate.'},
       !cashClaim && {metric: 'Cash position', material: true, reason: 'No current cash balance was found.', nextAction: 'Add a financing document, balance-sheet figure, or management estimate.'},
       !valuationClaim && {metric: 'Valuation evidence', material: true, reason: 'No traceable financing valuation was found.', nextAction: 'Add a funding announcement or credible secondary-market valuation.'}
