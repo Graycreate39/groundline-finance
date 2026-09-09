@@ -118,6 +118,8 @@ test('multi-source search collects current private-company valuation and revenue
   const model = generateInitialModel(result);
   assert.equal(model.outputs.find(output => output.id === 'base-revenue').value, 65e9);
   assert.equal(model.outputs.find(output => output.id === 'market-cap').value, 965e9);
+  assert.equal(model.assumptions.length, 1);
+  assert(model.assumptions[0].rationale.includes('Company-specific revenue'));
 });
 
 test('monthly private-company revenue is annualized and preferred over a sector bucket', async () => {
@@ -138,6 +140,7 @@ test('monthly private-company revenue is annualized and preferred over a sector 
   assert(!result.evidence.claims.some(claim => claim.metricId === 'funding-raised' && claim.value === 22_000_000));
   const model = generateInitialModel(result);
   assert.equal(model.outputs.find(output => output.id === 'base-revenue').value, 1_200_000);
+  assert.equal(model.assumptions.length, 1);
   assert.equal(model.outputs.find(output => output.id === 'base-revenue').provenance, 'Externally sourced');
 });
 
