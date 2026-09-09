@@ -97,8 +97,8 @@ function privateModel(workspace, claims) {
   return {
     status: 'estimated', outputs: [revenue, margin, cash, equityValue],
     assumptions: [{id: 'private-prior', label: 'Private-company estimation method', value: profile.name, provenance: 'Model-estimated',
-      confidence: profile.method ? 0.3 : 0.2, rationale: profile.method || 'Sector and scale estimate derived from the collected company evidence.', evidenceIds},
-    ...((scale?.drivers || profile.drivers) || []).map(driver => ({...driver, provenance: 'Model-estimated', confidence: scale?.confidence || 0.25, evidenceIds: scale?.evidenceIds || evidenceIds}))],
+      confidence: profile.method ? 0.3 : 0.2, rationale: revenueClaim ? 'Company-specific revenue is used directly; this operating profile supplies only missing margin and valuation-multiple assumptions.' : profile.method || 'Sector and scale estimate derived from the collected company evidence.', evidenceIds},
+    ...(!revenueClaim ? ((scale?.drivers || profile.drivers) || []) : []).map(driver => ({...driver, provenance: 'Model-estimated', confidence: scale?.confidence || 0.25, evidenceIds: scale?.evidenceIds || evidenceIds}))],
     checks: [{id: 'finite', status: [revenue, margin, cash, equityValue].every(item => finite(item.value)) ? 'pass' : 'fail', message: 'All estimates must be finite.'}],
     gaps: [
       !revenueClaim && {metric: 'Revenue evidence', material: true, reason: `No traceable current revenue figure was found; the displayed value uses the ${profile.name} operating model.`, nextAction: 'Add a company announcement, financial report, or credible revenue estimate.'},
