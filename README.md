@@ -24,7 +24,9 @@ The GitHub Pages site is a safe interface preview. Live SEC research requires th
 - Resolve its legal entity, ticker, exchange, location, sector, and match confidence.
 - Collect current SEC EDGAR submissions and company facts with filing links, periods, retrieval timestamps, XBRL locations, and provenance.
 - Verify a private company's identity, search multiple public sources for funding, valuation, revenue, customers, employees, and market position, and retain conflicting claims for inspection.
-- Prefer recent company-specific evidence over sector estimates, while keeping unsupported financial values visibly model-estimated.
+- Limit duplicate domains so one company website cannot crowd out independent evidence.
+- Annualize disclosed monthly or weekly revenue and use a company-specific operating-footprint estimate when a direct annual figure is unavailable.
+- Prefer recent company-specific evidence over fallback assumptions, while keeping unsupported financial values visibly model-estimated.
 - Add manual financial evidence. Manual values are always labeled **User-entered**.
 - Show the research plan, coverage categories, evidence register, source links, initial model outputs, and material gaps.
 - Persist workspaces and an audit trail locally.
@@ -46,7 +48,7 @@ Each claim retains its metric, value, unit, currency, reporting period, source U
 
 Public-company research uses official SEC EDGAR data. When current price data is unavailable, Groundline estimates market capitalization from reported fundamentals and a sector-adjusted multiple.
 
-Private-company research begins with public identity evidence, then runs targeted public-web searches and ranks official-company material and major financial press above aggregators. Extracted company-specific values are labeled **Externally sourced**; missing values use deterministic sector priors with a visibly labeled best estimate and compact expected range.
+Private-company research begins with public identity evidence, then runs targeted public-web searches and ranks official-company material and financial press above aggregators. It diversifies domains, distinguishes funding from revenue, and converts disclosed recurring revenue into an annual figure. Extracted company-specific values are labeled **Externally sourced**; missing values use a visible operating-footprint method and compact expected range.
 
 ## Architecture
 

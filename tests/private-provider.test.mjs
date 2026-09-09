@@ -52,8 +52,10 @@ test('official website and distinguishing context prevent a similarly named comp
   assert.equal(calls[0], 'https://farm.one/');
   assert(calls.slice(1).every(url => url.startsWith('https://html.duckduckgo.com/html/')));
   const model = generateInitialModel(result);
-  assert.equal(model.assumptions[0].value, 'local indoor agriculture and hospitality');
-  assert.equal(model.outputs.find(output => output.id === 'base-revenue').value, 3_000_000);
+  assert.equal(model.assumptions[0].value, 'single-site indoor farm, taproom, events, and restaurant supply');
+  assert.equal(model.outputs.find(output => output.id === 'base-revenue').value, 1_200_000);
+  assert.equal(model.assumptions.length, 4);
+  assert(model.outputs.find(output => output.id === 'base-revenue').formula.includes('$480k restaurant produce'));
 });
 
 test('multi-source search collects current private-company valuation and revenue evidence', async () => {
@@ -88,6 +90,27 @@ test('multi-source search collects current private-company valuation and revenue
   const model = generateInitialModel(result);
   assert.equal(model.outputs.find(output => output.id === 'base-revenue').value, 65e9);
   assert.equal(model.outputs.find(output => output.id === 'market-cap').value, 965e9);
+});
+
+test('monthly private-company revenue is annualized and preferred over a sector bucket', async () => {
+  const searchHtml = `<html><body>
+    <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fbrooklyn.news12.com%2Ffarm-one">Farm One grows hundreds of plants for restaurants across Brooklyn</a>
+    <a class="result__snippet">Farm One has transformed a warehouse into a thriving business generating $100,000 in monthly revenue.</a>
+    <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fweek-in-agtech">ClimateAI raises $22 million, Farm.One reopens</a>
+    <a class="result__snippet">ClimateAI landed $22 million in funding while Farm.One secured an undisclosed investment and reopened its Brooklyn farm.</a>
+  </body></html>`;
+  const websiteHtml = `<html><head><meta property="og:site_name" content="Farm.One"><meta name="description" content="The neighborhood farm at 625 Bergen Street in Brooklyn. We grow microgreens for chefs and operate a brewery and taproom."></head></html>`;
+  const fetcher = async url => String(url).startsWith('https://farm.one')
+    ? {ok: true, text: async () => websiteHtml}
+    : {ok: true, text: async () => searchHtml};
+  const result = await researchPrivateCompany('Farm.One', {website: 'https://farm.one/', fetcher, now: new Date('2026-09-08T12:00:00Z')});
+  const revenue = result.evidence.claims.find(claim => claim.metricId === 'annualized-revenue-run-rate');
+  assert.equal(revenue.value, 1_200_000);
+  assert.equal(revenue.location, 'Monthly revenue × 12');
+  assert(!result.evidence.claims.some(claim => claim.metricId === 'funding-raised' && claim.value === 22_000_000));
+  const model = generateInitialModel(result);
+  assert.equal(model.outputs.find(output => output.id === 'base-revenue').value, 1_200_000);
+  assert.equal(model.outputs.find(output => output.id === 'base-revenue').provenance, 'Externally sourced');
 });
 
 test('ambiguous public search results are rejected rather than silently substituted', async () => {

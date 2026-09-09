@@ -24,7 +24,13 @@ function privateProfile(workspace) {
     .filter(claim => ['company-description', 'identity-context'].includes(claim.metricId))
     .map(claim => String(claim.value || '')).join(' ').toLowerCase();
   if (/vertical farm|urban farm|indoor farm|microgreen|hydroponic|brewery|taproom/.test(description)) {
-    return {name: 'local indoor agriculture and hospitality', revenue: 3e6, revenueBand: 0.25, margin: 0.02, marginBand: 0.08, multiple: 1.4, valuationBand: 0.3};
+    return {name: 'single-site indoor farm, taproom, events, and restaurant supply', revenue: 1.2e6, revenueBand: 0.15, margin: -0.02, marginBand: 0.06, multiple: 1.4, valuationBand: 0.2,
+      method: '$480k restaurant produce + $520k taproom + $200k tours, classes, and events; built from one verified Brooklyn location',
+      drivers: [
+        {id: 'produce-stream', label: 'Restaurant produce revenue', value: '$480k', rationale: 'Estimated recurring chef and restaurant orders from the verified indoor farm.'},
+        {id: 'taproom-stream', label: 'Taproom revenue', value: '$520k', rationale: 'Estimated annual sales from the verified six-day public schedule.'},
+        {id: 'events-stream', label: 'Tours, classes, and events revenue', value: '$200k', rationale: 'Estimated ticketed programming and private-event contribution.'}
+      ]};
   }
   if (/artificial intelligence|large language model|foundation model|generative ai/.test(description)) {
     return {name: 'frontier artificial intelligence', revenue: 5e9, revenueBand: 0.3, margin: -0.1, marginBand: 0.15, multiple: 12, valuationBand: 0.3};
@@ -52,7 +58,7 @@ function privateModel(workspace, claims) {
   const revenue = revenueClaim
     ? outputFromClaim(revenueClaim, 'base-revenue', revenueClaim.label === 'Annualized revenue run rate' ? 'Annualized revenue run rate' : 'Current revenue')
     : estimate({id: 'base-revenue', label: 'Estimated current revenue', low: profile.revenue * (1 - profile.revenueBand), high: profile.revenue * (1 + profile.revenueBand),
-      formula: `${profile.name} prior; replace with company evidence when available`, confidence: 0.2, evidenceIds});
+      formula: profile.method || `${profile.name} operating-footprint estimate; replace with company evidence when available`, confidence: profile.method ? 0.3 : 0.2, evidenceIds});
   const margin = operatingClaim && revenueClaim && finite(revenueClaim.value) && revenueClaim.value !== 0
     ? estimate({id: 'operating-margin', label: 'Operating margin', low: operatingClaim.value / revenueClaim.value,
       high: operatingClaim.value / revenueClaim.value, unit: 'percent', formula: 'Operating income ÷ revenue', confidence: 0.65,
@@ -70,8 +76,9 @@ function privateModel(workspace, claims) {
       confidence: 0.15, evidenceIds: revenue.evidenceIds});
   return {
     status: 'estimated', outputs: [revenue, margin, cash, equityValue],
-    assumptions: [{id: 'private-prior', label: 'Private-company profile', value: profile.name, provenance: 'Model-estimated',
-      confidence: 0.2, rationale: 'Broad sector prior derived from the public company description.', evidenceIds}],
+    assumptions: [{id: 'private-prior', label: 'Private-company estimation method', value: profile.name, provenance: 'Model-estimated',
+      confidence: profile.method ? 0.3 : 0.2, rationale: profile.method || 'Sector and scale estimate derived from the collected company evidence.', evidenceIds},
+    ...(profile.drivers || []).map(driver => ({...driver, provenance: 'Model-estimated', confidence: 0.25, evidenceIds}))],
     checks: [{id: 'finite', status: [revenue, margin, cash, equityValue].every(item => finite(item.value)) ? 'pass' : 'fail', message: 'All estimates must be finite.'}],
     gaps: [
       !revenueClaim && {metric: 'Revenue evidence', material: true, reason: 'No traceable current revenue figure was found; the displayed value is a sector prior.', nextAction: 'Add a company announcement, financial report, or credible revenue estimate.'},

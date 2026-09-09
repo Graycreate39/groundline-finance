@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 
 const SEARCH = 'https://html.duckduckgo.com/html/';
 const MONTHS = {january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12};
-const SCALE = {trillion: 1e12, t: 1e12, billion: 1e9, b: 1e9, million: 1e6, m: 1e6};
+const SCALE = {trillion: 1e12, t: 1e12, billion: 1e9, b: 1e9, million: 1e6, m: 1e6, thousand: 1e3, k: 1e3};
 
 function decodeHtml(value = '') {
   return String(value).replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
@@ -39,7 +39,7 @@ function sourceProfile(url, officialDomain, company) {
   const matchesCompanyName = companyKey(firstHostLabel) === companyKey(company);
   if (matchesKnownDomain || matchesCompanyName) return {host, type: 'Company announcement', confidence: 0.97};
   if (host.endsWith('sec.gov')) return {host, type: 'Regulatory filing', confidence: 0.95};
-  if (['reuters.com', 'apnews.com', 'bloomberg.com', 'wsj.com', 'ft.com', 'cnbc.com', 'axios.com'].some(domain => host.endsWith(domain))) {
+  if (['reuters.com', 'apnews.com', 'bloomberg.com', 'wsj.com', 'ft.com', 'cnbc.com', 'axios.com', 'news12.com'].some(domain => host.endsWith(domain))) {
     return {host, type: 'Major financial press', confidence: 0.86};
   }
   if (['crunchbase.com', 'pitchbook.com', 'sacra.com', 'stockanalysis.com', 'cbinsights.com'].some(domain => host.endsWith(domain))) {
@@ -94,12 +94,14 @@ function amountClaims(result, company, retrievedAt, source) {
   const text = `${result.title}. ${result.snippet}`;
   const claims = [];
   const seen = new Set();
-  for (const match of text.matchAll(/\$\s*([\d,.]+)\s*(trillion|billion|million|[tbm])\b/gi)) {
+  for (const match of text.matchAll(/\$\s*([\d,.]+)\s*(trillion|billion|million|thousand|[tbmk])?(?=\s|[.,;:)]|$)/gi)) {
     const nearby = text.slice(Math.max(0, match.index - 90), match.index + match[0].length + 90);
     const sentenceStart = Math.max(text.lastIndexOf('. ', match.index), text.lastIndexOf('! ', match.index), text.lastIndexOf('? ', match.index));
     const subjectText = text.slice(sentenceStart + 1, match.index);
     const targetToken = String(company).toLowerCase().match(/[a-z0-9]{3,}/)?.[0] || '';
     const targetSubjectIndex = subjectText.toLowerCase().lastIndexOf(targetToken);
+    const namedActor = subjectText.match(/([A-Z][A-Za-z0-9.-]{2,})\s+(?:raises?|raised|secures?|secured|lands?|landed)\D*$/);
+    if (namedActor && companyKey(namedActor[1]) !== companyKey(company)) continue;
     const otherSubjectIndex = Math.max(...[...subjectText.matchAll(/\b(OpenAI|Google|Microsoft|Amazon|Meta|Apple|SpaceX|Nvidia|Tesla)\b/gi)]
       .filter(item => companyKey(item[0]) !== companyKey(company)).map(item => item.index), -1);
     if (otherSubjectIndex > targetSubjectIndex) continue;
@@ -112,11 +114,16 @@ function amountClaims(result, company, retrievedAt, source) {
     if (otherDistance < targetDistance) continue;
     let metric = nearestMetric(text, match.index, match.index + match[0].length);
     if (!metric) continue;
-    if (metric.label === 'Revenue' && /annualized|run[- ]rate|\barr\b/i.test(nearby)) {
+    const monthlyRevenue = metric.label === 'Revenue' && /monthly revenue|revenue.{0,25}(?:per month|a month)|(?:per month|a month).{0,25}revenue/i.test(nearby);
+    const weeklyRevenue = metric.label === 'Revenue' && /weekly revenue|revenue.{0,25}(?:per week|a week)|(?:per week|a week).{0,25}revenue/i.test(nearby);
+    if (metric.label === 'Revenue' && (/annualized|run[- ]rate|\barr\b/i.test(nearby) || monthlyRevenue || weeklyRevenue)) {
       metric = {label: 'Annualized revenue run rate', metricId: 'annualized-revenue-run-rate'};
     }
-    const value = Number(match[1].replaceAll(',', '')) * SCALE[match[2].toLowerCase()];
-    if (!Number.isFinite(value) || value <= 0) continue;
+    const scale = match[2] ? SCALE[match[2].toLowerCase()] : 1;
+    let value = Number(match[1].replaceAll(',', '')) * scale;
+    if (monthlyRevenue) value *= 12;
+    if (weeklyRevenue) value *= 52;
+    if (!Number.isFinite(value) || value < 1_000) continue;
     const key = `${metric.metricId}:${value}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -125,8 +132,8 @@ function amountClaims(result, company, retrievedAt, source) {
       companyId: companyKey(company), metricId: metric.metricId, label: metric.label, value, unit: 'USD', currency: 'USD',
       periodStart: null, periodEnd: publicationDate(`${result.url} ${text}`), form: null, filingDate: null, accession: null,
       sourceUrl: result.url, sourceTitle: result.title, sourceType: source.type, retrievedAt,
-      location: 'Search result title and excerpt', excerpt: result.snippet || result.title,
-      confidence: Math.max(0.45, source.confidence - 0.08), provenance: 'Externally sourced', usedInModel: ['Revenue', 'Post-money valuation'].includes(metric.label)
+      location: monthlyRevenue ? 'Monthly revenue × 12' : weeklyRevenue ? 'Weekly revenue × 52' : 'Search result title and excerpt', excerpt: result.snippet || result.title,
+      confidence: Math.max(0.45, source.confidence - 0.08), provenance: 'Externally sourced', usedInModel: ['Revenue', 'Annualized revenue run rate', 'Post-money valuation'].includes(metric.label)
     });
   }
   const valuationValues = new Set(claims.filter(claim => claim.metricId === 'post-money-valuation').map(claim => claim.value));
@@ -162,21 +169,29 @@ export async function collectPrivateCompanyResearch(identity, {fetcher = fetch, 
   const queries = [
     `"${name}" funding valuation revenue`,
     `"${name}" latest annualized revenue run rate 2026`,
+    `"${name}" "monthly revenue" OR "annual revenue"`,
     `"${name}" customers employees market share`,
+    `"${name}" locations capacity pricing business model`,
     `"${name}" latest funding round valuation`,
     officialDomain ? `site:${officialDomain} funding valuation revenue` : ''
   ].filter(Boolean);
   const batches = await Promise.all(queries.map(query => search(query, fetcher)));
   const key = companyKey(name);
   const seen = new Set();
-  const results = batches.flat().filter(result => {
+  const ranked = batches.flat().filter(result => {
     const relevant = companyKey(`${result.title} ${result.snippet}`).includes(key);
     if (!relevant || seen.has(result.url)) return false;
     seen.add(result.url);
     return true;
   }).map((result, index) => ({...result, index, source: sourceProfile(result.url, officialDomain, name)}))
-    .sort((a, b) => b.source.confidence - a.source.confidence || a.index - b.index)
-    .slice(0, 12);
+    .sort((a, b) => b.source.confidence - a.source.confidence || a.index - b.index);
+  const hostCounts = new Map();
+  const results = ranked.filter(result => {
+    const count = hostCounts.get(result.source.host) || 0;
+    if (count >= 3) return false;
+    hostCounts.set(result.source.host, count + 1);
+    return true;
+  }).slice(0, 16);
   const retrievedAt = now.toISOString();
   const claims = results.flatMap(result => [
     findingClaim(result, name, retrievedAt, result.source),

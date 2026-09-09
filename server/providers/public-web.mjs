@@ -70,7 +70,7 @@ function inferIdentityDetails(text) {
   const location = /brooklyn|bergen street|prospect heights/.test(value) ? 'Brooklyn, New York, United States'
     : /new york|nyc/.test(value) ? 'New York, United States' : null;
   const country = /\b(united states|usa|u\.s\.|new york|nyc|brooklyn)\b/.test(value) ? 'United States' : null;
-  const sector = /vertical farm|urban farm|microgreen|hydroponic|brewery|taproom/.test(value) ? 'Indoor agriculture, food & hospitality'
+  const sector = /vertical farm|urban farm|neighborhood farm|micro\s?green|salad green|edible flower|hydroponic|brewery|taproom/.test(value) ? 'Indoor agriculture, food & hospitality'
     : /artificial intelligence|large language model|generative ai/.test(value) ? 'Artificial intelligence'
       : /software|platform|fintech|cloud|subscription/.test(value) ? 'Software and technology'
         : /restaurant|retail|consumer|food|apparel/.test(value) ? 'Consumer and commerce' : 'Not yet established';
