@@ -95,7 +95,7 @@ function amountClaims(result, company, retrievedAt, source) {
   const text = `${result.title}. ${result.snippet}`;
   const claims = [];
   const seen = new Set();
-  for (const match of text.matchAll(/\$\s*([\d,.]+)\s*(trillion|billion|million|thousand|[tbmk])?(?=\s|[.,;:)]|$)/gi)) {
+  for (const match of text.matchAll(/(?:US\s*\$|USD\s*\$?|\$)\s*([\d,.]+)\s*(trillion|billion|million|thousand|[tbmk])?(?=\s|[.,]\s|[;:)]|$)/gi)) {
     const nearby = text.slice(Math.max(0, match.index - 90), match.index + match[0].length + 90);
     const sentenceStart = Math.max(text.lastIndexOf('. ', match.index), text.lastIndexOf('! ', match.index), text.lastIndexOf('? ', match.index));
     const subjectText = text.slice(sentenceStart + 1, match.index);
@@ -220,7 +220,7 @@ async function collectOfficialPages(website, fetcher) {
   } catch { return []; }
 }
 
-export async function collectPrivateCompanyResearch(identity, {fetcher = fetch, now = new Date(), website = '', context = ''} = {}) {
+export async function collectPrivateCompanyResearch(identity, {fetcher = fetch, now = new Date(), website = '', context = '', seedEvidence = []} = {}) {
   const name = identity.legalName;
   let officialDomain = '';
   try { officialDomain = new URL(website || identity.sourceUrl || '').hostname.replace(/^www\./, ''); } catch {}
@@ -254,11 +254,16 @@ export async function collectPrivateCompanyResearch(identity, {fetcher = fetch, 
     return true;
   }).slice(0, 16);
   const retrievedAt = now.toISOString();
-  const claims = results.flatMap(result => [
+  const seededClaims = seedEvidence.flatMap(claim => {
+    const result = {url: claim.sourceUrl || identity.sourceUrl, title: claim.sourceTitle || identity.legalName, snippet: String(claim.value || claim.excerpt || '')};
+    const source = {host: officialDomain, type: claim.sourceType || 'Resolved identity source', confidence: claim.confidence || 0.65};
+    return [...amountClaims(result, name, retrievedAt, source), ...countClaims(result, name, retrievedAt, source)];
+  });
+  const claims = [...seededClaims, ...results.flatMap(result => [
     findingClaim(result, name, retrievedAt, result.source),
     ...amountClaims(result, name, retrievedAt, result.source),
     ...countClaims(result, name, retrievedAt, result.source)
-  ]);
+  ])];
   return {
     claims,
     queries,

@@ -10,7 +10,7 @@ const bestClaim = (claims, labels) => claims.filter(claim => labels.some(label =
 
 const outputFromClaim = (claim, id, label = claim.label) => {
   const confidence = claim.confidence ?? 0.7;
-  const band = claim.provenance === 'Externally sourced' ? Math.max(0.05, Math.min(0.18, (1 - confidence) * 0.35)) : 0;
+  const band = claim.provenance === 'Externally sourced' && claim.metricId !== 'post-money-valuation' ? Math.max(0.05, Math.min(0.18, (1 - confidence) * 0.35)) : 0;
   return {id, label, value: claim.value, low: claim.value * (1 - band), high: claim.value * (1 + band), unit: claim.unit || 'USD',
     currency: claim.currency || (claim.unit === 'USD' ? 'USD' : null),
     formula: `${claim.location || claim.sourceType || 'Collected evidence'}${band ? `; ±${Math.round(band * 100)}% source-confidence range` : ''}`,
