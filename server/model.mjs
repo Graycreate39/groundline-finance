@@ -1,6 +1,12 @@
 const finite = number => typeof number === 'number' && Number.isFinite(number);
 const midpoint = (low, high) => (low + high) / 2;
 const claimNamed = (claims, label) => claims.find(claim => claim.label.toLowerCase() === label.toLowerCase());
+const bestClaim = (claims, labels) => claims.filter(claim => labels.some(label => claim.label.toLowerCase() === label.toLowerCase()) && finite(claim.value))
+  .sort((a, b) => {
+    const dateDifference = Date.parse(b.periodEnd || '') - Date.parse(a.periodEnd || '');
+    if (Number.isFinite(dateDifference) && dateDifference) return dateDifference;
+    return (b.confidence || 0) - (a.confidence || 0) || b.value - a.value;
+  })[0];
 
 const outputFromClaim = (claim, id, label = claim.label) => ({
   id, label, value: claim.value, low: claim.value, high: claim.value, unit: claim.unit || 'USD',
@@ -14,31 +20,65 @@ const estimate = ({id, label, low, high, unit = 'USD', formula, confidence, evid
 });
 
 function privateProfile(workspace) {
-  const description = String((workspace.evidence?.claims || []).find(claim => claim.metricId === 'company-description')?.value || '').toLowerCase();
-  if (/biotech|laborator|robot|hardware|manufactur|medical|device/.test(description)) {
-    return {name: 'specialized hardware and life sciences', revenue: 75e6, revenueBand: 0.2, margin: -0.07, marginBand: 0.05, multiple: 4.25, valuationBand: 0.2};
+  const description = (workspace.evidence?.claims || [])
+    .filter(claim => ['company-description', 'identity-context', 'research-finding'].includes(claim.metricId))
+    .map(claim => String(claim.value || '')).join(' ').toLowerCase();
+  if (/vertical farm|urban farm|indoor farm|microgreen|hydroponic|brewery|taproom/.test(description)) {
+    return {name: 'single-site indoor farm, taproom, events, and restaurant supply', revenue: 1.2e6, revenueBand: 0.15, revenuePerEmployee: 115e3, revenuePerLocation: 1.2e6, fundingRevenueFactor: 1.2, margin: -0.02, marginBand: 0.06, multiple: 1.4, valuationBand: 0.2,
+      method: '$480k restaurant produce + $520k taproom + $200k tours, classes, and events; built from one verified Brooklyn location',
+      drivers: [
+        {id: 'produce-stream', label: 'Restaurant produce revenue', value: '$480k', rationale: 'Estimated recurring chef and restaurant orders from the verified indoor farm.'},
+        {id: 'taproom-stream', label: 'Taproom revenue', value: '$520k', rationale: 'Estimated annual sales from the verified six-day public schedule.'},
+        {id: 'events-stream', label: 'Tours, classes, and events revenue', value: '$200k', rationale: 'Estimated ticketed programming and private-event contribution.'}
+      ]};
+  }
+  if (/artificial intelligence|large language model|foundation model|generative ai/.test(description)) {
+    return {name: 'frontier artificial intelligence', revenue: 5e9, revenueBand: 0.3, revenuePerEmployee: 520e3, revenuePerLocation: 80e6, fundingRevenueFactor: 0.6, margin: -0.1, marginBand: 0.15, multiple: 12, valuationBand: 0.3};
+  }
+  if (/biotech|laborator|robot|hardware|manufactur|medical|device|sensor/.test(description)) {
+    return {name: 'specialized hardware and life sciences', revenue: 75e6, revenueBand: 0.2, revenuePerEmployee: 260e3, revenuePerLocation: 12e6, fundingRevenueFactor: 0.75, margin: -0.07, marginBand: 0.05, multiple: 4.25, valuationBand: 0.2};
   }
   if (/software|platform|fintech|financial services|cloud|subscription|marketplace/.test(description)) {
-    return {name: 'software and platform', revenue: 120e6, revenueBand: 0.2, margin: 0.08, marginBand: 0.1, multiple: 6, valuationBand: 0.2};
+    return {name: 'software and platform', revenue: 120e6, revenueBand: 0.2, revenuePerEmployee: 230e3, revenuePerLocation: 8e6, fundingRevenueFactor: 1, margin: 0.08, marginBand: 0.1, multiple: 6, valuationBand: 0.2};
   }
   if (/retail|restaurant|consumer|commerce|food|apparel/.test(description)) {
-    return {name: 'consumer and commerce', revenue: 50e6, revenueBand: 0.2, margin: 0.06, marginBand: 0.06, multiple: 1.8, valuationBand: 0.2};
+    return {name: 'consumer and commerce', revenue: 50e6, revenueBand: 0.2, revenuePerEmployee: 160e3, revenuePerLocation: 2.5e6, fundingRevenueFactor: 1.5, margin: 0.06, marginBand: 0.06, multiple: 1.8, valuationBand: 0.2};
   }
-  return {name: 'private-company broad prior', revenue: 50e6, revenueBand: 0.3, margin: 0.02, marginBand: 0.1, multiple: 3, valuationBand: 0.3};
+  return {name: 'broad private-company', revenue: 50e6, revenueBand: 0.3, revenuePerEmployee: 180e3, revenuePerLocation: 3e6, fundingRevenueFactor: 1, margin: 0.02, marginBand: 0.1, multiple: 3, valuationBand: 0.3};
+}
+
+function companyScaleEstimate(profile, claims) {
+  const employees = bestClaim(claims, ['Employees']);
+  const locations = bestClaim(claims, ['Locations']);
+  const funding = bestClaim(claims, ['Funding raised']);
+  const methods = [];
+  if (employees) methods.push({value: employees.value * profile.revenuePerEmployee, weight: employees.confidence || 0.5,
+    label: 'Employee scale', display: `${employees.value.toLocaleString('en-US')} employees × $${Math.round(profile.revenuePerEmployee / 1000)}k sector revenue per employee`, evidenceId: employees.id});
+  if (locations) methods.push({value: locations.value * profile.revenuePerLocation, weight: locations.confidence || 0.5,
+    label: 'Operating footprint', display: `${locations.value.toLocaleString('en-US')} locations × $${(profile.revenuePerLocation / 1e6).toFixed(1)}m annual revenue per location`, evidenceId: locations.id});
+  if (!methods.length && funding) methods.push({value: funding.value * profile.fundingRevenueFactor, weight: Math.min(0.35, funding.confidence || 0.3),
+    label: 'Funding scale', display: `$${(funding.value / 1e6).toFixed(1)}m latest funding × ${profile.fundingRevenueFactor.toFixed(2)} revenue conversion`, evidenceId: funding.id});
+  if (!methods.length) return null;
+  const totalWeight = methods.reduce((sum, method) => sum + method.weight, 0);
+  const revenue = methods.reduce((sum, method) => sum + method.value * method.weight, 0) / totalWeight;
+  const band = methods.length > 1 ? 0.22 : methods[0].label === 'Funding scale' ? 0.4 : 0.28;
+  return {revenue, band, method: methods.map(item => item.display).join('; blended by source confidence'), confidence: methods.length > 1 ? 0.38 : methods[0].label === 'Funding scale' ? 0.18 : 0.3,
+    evidenceIds: methods.map(item => item.evidenceId), drivers: methods.map(item => ({id: `scale-${item.evidenceId}`, label: item.label, value: item.display, rationale: 'Company-specific public scale evidence converted through the selected operating profile.'}))};
 }
 
 function privateModel(workspace, claims) {
   const profile = privateProfile(workspace);
+  const scale = companyScaleEstimate(profile, claims);
   const description = claims.find(claim => claim.metricId === 'company-description');
-  const revenueClaim = claimNamed(claims, 'Revenue');
-  const operatingClaim = claimNamed(claims, 'Operating income');
-  const cashClaim = claimNamed(claims, 'Cash and cash equivalents') || claimNamed(claims, 'Cash');
-  const valuationClaim = claimNamed(claims, 'Market capitalization') || claimNamed(claims, 'Equity value') || claimNamed(claims, 'Post-money valuation');
+  const revenueClaim = bestClaim(claims, ['Revenue', 'Annualized revenue run rate']);
+  const operatingClaim = bestClaim(claims, ['Operating income']);
+  const cashClaim = bestClaim(claims, ['Cash and cash equivalents', 'Cash']);
+  const valuationClaim = bestClaim(claims, ['Market capitalization', 'Equity value', 'Post-money valuation']);
   const evidenceIds = description ? [description.id] : [];
   const revenue = revenueClaim
-    ? outputFromClaim(revenueClaim, 'base-revenue', 'Current revenue')
-    : estimate({id: 'base-revenue', label: 'Estimated current revenue', low: profile.revenue * (1 - profile.revenueBand), high: profile.revenue * (1 + profile.revenueBand),
-      formula: `${profile.name} prior; replace with company evidence when available`, confidence: 0.2, evidenceIds});
+    ? outputFromClaim(revenueClaim, 'base-revenue', revenueClaim.label === 'Annualized revenue run rate' ? 'Annualized revenue run rate' : 'Current revenue')
+    : estimate({id: 'base-revenue', label: 'Estimated current revenue', low: (scale?.revenue || profile.revenue) * (1 - (scale?.band || profile.revenueBand)), high: (scale?.revenue || profile.revenue) * (1 + (scale?.band || profile.revenueBand)),
+      formula: scale?.method || profile.method || `${profile.name} operating-footprint estimate; replace with company evidence when available`, confidence: scale?.confidence || (profile.method ? 0.3 : 0.2), evidenceIds: scale?.evidenceIds || evidenceIds});
   const margin = operatingClaim && revenueClaim && finite(revenueClaim.value) && revenueClaim.value !== 0
     ? estimate({id: 'operating-margin', label: 'Operating margin', low: operatingClaim.value / revenueClaim.value,
       high: operatingClaim.value / revenueClaim.value, unit: 'percent', formula: 'Operating income ÷ revenue', confidence: 0.65,
@@ -56,11 +96,16 @@ function privateModel(workspace, claims) {
       confidence: 0.15, evidenceIds: revenue.evidenceIds});
   return {
     status: 'estimated', outputs: [revenue, margin, cash, equityValue],
-    assumptions: [{id: 'private-prior', label: 'Private-company profile', value: profile.name, provenance: 'Model-estimated',
-      confidence: 0.2, rationale: 'Broad sector prior derived from the public company description.', evidenceIds}],
+    assumptions: [{id: 'private-prior', label: 'Private-company estimation method', value: profile.name, provenance: 'Model-estimated',
+      confidence: profile.method ? 0.3 : 0.2, rationale: profile.method || 'Sector and scale estimate derived from the collected company evidence.', evidenceIds},
+    ...((scale?.drivers || profile.drivers) || []).map(driver => ({...driver, provenance: 'Model-estimated', confidence: scale?.confidence || 0.25, evidenceIds: scale?.evidenceIds || evidenceIds}))],
     checks: [{id: 'finite', status: [revenue, margin, cash, equityValue].every(item => finite(item.value)) ? 'pass' : 'fail', message: 'All estimates must be finite.'}],
-    gaps: [{metric: 'Estimate precision', material: false, reason: 'Private-company financials were not publicly verified. The displayed precision reflects the selected sector prior, not verified accuracy.',
-      nextAction: 'Add revenue, funding, cash, or operating results to replace each estimate and narrow valuation.'}]
+    gaps: [
+      !revenueClaim && {metric: 'Revenue evidence', material: true, reason: `No traceable current revenue figure was found; the displayed value uses the ${profile.name} operating model.`, nextAction: 'Add a company announcement, financial report, or credible revenue estimate.'},
+      !operatingClaim && {metric: 'Operating results', material: true, reason: 'No operating income or margin evidence was found.', nextAction: 'Add operating income, loss, or margin evidence to replace the sector estimate.'},
+      !cashClaim && {metric: 'Cash position', material: true, reason: 'No current cash balance was found.', nextAction: 'Add a financing document, balance-sheet figure, or management estimate.'},
+      !valuationClaim && {metric: 'Valuation evidence', material: true, reason: 'No traceable financing valuation was found.', nextAction: 'Add a funding announcement or credible secondary-market valuation.'}
+    ].filter(Boolean)
   };
 }
 

@@ -5,5 +5,12 @@
     "theme": "Archive",
     "enrichment": "editorial research still life",
     "brief": "Replace the fictional dashboard with an evidence-first real-company research workspace"
+  },
+  {
+    "date": "2026-09-09",
+    "macrostructure": "Workbench",
+    "theme": "Brutal",
+    "enrichment": "real product workspace",
+    "brief": "Redesign Groundline as an evidence-backed analyst workbench with source filtering and visible assumptions"
   }
 ]
