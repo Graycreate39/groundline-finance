@@ -23,9 +23,10 @@ The GitHub Pages site is a safe interface preview. Live SEC research requires th
 - Search a U.S. public company by ticker, name, or CIK.
 - Resolve its legal entity, ticker, exchange, location, sector, and match confidence.
 - Collect current SEC EDGAR submissions and company facts with filing links, periods, retrieval timestamps, XBRL locations, and provenance.
-- Verify a private company's identity, search multiple public sources for funding, valuation, revenue, customers, employees, and market position, and retain conflicting claims for inspection.
+- Verify a private company's identity, search multiple public sources, crawl relevant pages on its official site, and retain conflicting claims for inspection.
 - Limit duplicate domains so one company website cannot crowd out independent evidence.
-- Annualize disclosed monthly or weekly revenue and use a company-specific operating-footprint estimate when a direct annual figure is unavailable.
+- Annualize disclosed monthly or weekly revenue and use company-specific employee, location, funding, and operating-footprint signals when a direct annual figure is unavailable.
+- Carry uncertainty from lower-confidence outside estimates into compact output ranges instead of presenting those estimates as exact facts.
 - Prefer recent company-specific evidence over fallback assumptions, while keeping unsupported financial values visibly model-estimated.
 - Add manual financial evidence. Manual values are always labeled **User-entered**.
 - Show the research plan, coverage categories, evidence register, source links, initial model outputs, and material gaps.
@@ -48,7 +49,7 @@ Each claim retains its metric, value, unit, currency, reporting period, source U
 
 Public-company research uses official SEC EDGAR data. When current price data is unavailable, Groundline estimates market capitalization from reported fundamentals and a sector-adjusted multiple.
 
-Private-company research begins with public identity evidence, then runs targeted public-web searches and ranks official-company material and financial press above aggregators. It diversifies domains, distinguishes funding from revenue, and converts disclosed recurring revenue into an annual figure. Extracted company-specific values are labeled **Externally sourced**; missing values use a visible operating-footprint method and compact expected range.
+Private-company research begins with public identity evidence, then runs targeted public-web searches and reads a limited set of relevant About, product, pricing, team, news, and event pages on the verified official domain. It ranks official-company material and financial press above aggregators, diversifies domains, distinguishes funding from revenue, and converts disclosed recurring revenue into an annual figure. Extracted company-specific values are labeled **Externally sourced**; missing values use visible company-scale evidence and compact expected ranges.
 
 ## Architecture
 
@@ -81,6 +82,6 @@ The test suite covers real-company SEC normalization, inspectable filing links, 
 ## Current limits
 
 - SEC research covers U.S. registrants and the financial concepts currently mapped in `server/providers/sec.mjs`.
-- Public-web research relies on search-result titles and excerpts, so source links and confidence remain visible for inspection; paywalled or unindexed details may still be absent.
+- Public-web research uses official-site page text plus search-result titles and excerpts, so source links and confidence remain visible for inspection; paywalled or unindexed details may still be absent.
 - Exact live share prices require an optional market-data provider; without one, market capitalization is estimated from reported fundamentals.
 - Generated images are product visuals; they never serve as company evidence.
